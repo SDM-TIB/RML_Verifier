@@ -310,13 +310,17 @@ def verify(config_path):
 
 							if "none" not in str(config["datasets"]["endpoint"].lower()):
 								sparql = SPARQLWrapper(config["datasets"]["endpoint"])
-								sparql.setQuery("SELECT ?p WHERE { ?s ?p ?o. }")
+								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+													SELECT ?s 
+													WHERE { ?s rdf:type	owl:DatatypeProperty. }""")
 								sparql.setReturnFormat(JSON)
 								predicates = sparql.query().convert()
 
-								sparql.setQuery("""PREFIX rr: <http://www.w3.org/ns/r2rml#> 
-													SELECT ?o 
-													WHERE { ?s rr:class ?o. }""")
+								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+													SELECT ?s 
+													WHERE { ?s rdf:type owl:Class. }""")
 								sparql.setReturnFormat(JSON)
 								types = sparql.query().convert()
 
@@ -324,16 +328,16 @@ def verify(config_path):
 								if "none" not in str(config["datasets"]["endpoint"].lower()):
 									no_predicate = True
 									for p in predicates["results"]["bindings"]:
-										if po.predicate_map.value in p["p"]["value"]:
+										if po.predicate_map.value in p["s"]["value"]:
 											no_predicate = False
 											break
 									if no_predicate:
 										print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + "is not in the endpoint " + config["datasets"]["endpoint"] + ".")
-										
+
 									if triples_map.subject_map.rdf_class is not None:
 										no_class = True
 										for c in types["results"]["bindings"]:
-											if triples_map.subject_map.rdf_class in c["o"]["value"]:
+											if triples_map.subject_map.rdf_class in c["s"]["value"]:
 												no_class = False
 												break
 										if no_class:
@@ -374,13 +378,17 @@ def verify(config_path):
 
 					if "none" not in str(config["datasets"]["endpoint"].lower()):
 						sparql = SPARQLWrapper(config["datasets"]["endpoint"])
-						sparql.setQuery("SELECT ?p WHERE { ?s ?p ?o. }")
+						sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+											PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+											SELECT ?s 
+											WHERE { ?s rdf:type	owl:DatatypeProperty. }""")
 						sparql.setReturnFormat(JSON)
 						predicates = sparql.query().convert()
 
-						sparql.setQuery("""PREFIX rr: <http://www.w3.org/ns/r2rml#> 
-											SELECT ?o 
-											WHERE { ?s rr:class ?o. }""")
+						sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+											PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+											SELECT ?s 
+											WHERE { ?s rdf:type owl:Class. }""")
 						sparql.setReturnFormat(JSON)
 						types = sparql.query().convert()
 
@@ -388,7 +396,7 @@ def verify(config_path):
 						if "none" not in str(config["datasets"]["endpoint"].lower()):
 							no_predicate = True
 							for p in predicates["results"]["bindings"]:
-								if po.predicate_map.value in p["p"]["value"]:
+								if po.predicate_map.value in p["s"]["value"]:
 									no_predicate = False
 									break
 							if no_predicate:
@@ -397,7 +405,7 @@ def verify(config_path):
 							if triples_map.subject_map.rdf_class is not None:
 								no_class = True
 								for c in types["results"]["bindings"]:
-									if triples_map.subject_map.rdf_class in c["o"]["value"]:
+									if triples_map.subject_map.rdf_class in c["s"]["value"]:
 										no_class = False
 										break
 								if no_class:
