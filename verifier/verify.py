@@ -343,10 +343,6 @@ def verify(config_path):
 									if no_predicate:
 										print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
 									else:
-										query = "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> \n"
-										query += "SELECT ?domain,?range \n"
-										query += "WHERE { " + po.predicate_map.value + " rdfs:domain ?domain;\n"
-										query += "rdfs:range ?range. }"
 										sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
 															PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 															PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>  
@@ -434,10 +430,6 @@ def verify(config_path):
 							if no_predicate:
 								print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
 							else:
-								query = "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> \n"
-								query += "SELECT ?domain,?range \n"
-								query += "WHERE { " + po.predicate_map.value + " rdfs:domain ?domain;\n"
-								query += "rdfs:range ?range. }"
 								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
 													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 													PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>  
@@ -477,11 +469,11 @@ def main():
 	try:
 		opts, args = getopt.getopt(argv, 'hc:', 'config_file=')
 	except getopt.GetoptError:
-		print('python3 translate.py -c <config_file>')
+		print('python3 verify.py -c <config_file>')
 		sys.exit(1)
 	for opt, arg in opts:
 		if opt == '-h':
-			print('python3 translate.py -c <config_file>')
+			print('python3 verify.py -c <config_file>')
 			sys.exit()
 		elif opt == '-c' or opt == '--config_file':
 			config_path = arg
