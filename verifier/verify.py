@@ -326,14 +326,6 @@ def verify(config_path):
 
 							for po in triples_map.predicate_object_maps_list:
 								if "none" not in str(config["datasets"]["endpoint"].lower()):
-									no_predicate = True
-									for p in predicates["results"]["bindings"]:
-										if po.predicate_map.value in p["s"]["value"]:
-											no_predicate = False
-											break
-									if no_predicate:
-										print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
-
 									if triples_map.subject_map.rdf_class is not None:
 										no_class = True
 										for c in types["results"]["bindings"]:
@@ -343,6 +335,38 @@ def verify(config_path):
 										if no_class:
 											print("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
 
+									no_predicate = True
+									for p in predicates["results"]["bindings"]:
+										if po.predicate_map.value in p["s"]["value"]:
+											no_predicate = False
+											break
+									if no_predicate:
+										print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+									else:
+										query = "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> \n"
+										query += "SELECT ?domain,?range \n"
+										query += "WHERE { " + po.predicate_map.value + " rdfs:domain ?domain;\n"
+										query += "rdfs:range ?range. }"
+										sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+															PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+															PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>  
+															SELECT ?s,?domain,?range
+															WHERE { ?s rdf:type owl:DatatypeProperty; 
+															         rdfs:domain ?domain;
+															         rdfs:range ?range. }""")
+										sparql.setReturnFormat(JSON)
+										domain_range = sparql.query().convert()
+
+										for dr in domain_range["results"]["bindings"]:
+											if po.predicate_map.value in dr["s"]["value"]:
+												if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
+													print("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".")
+
+												if "Literal" in dr["range"]["value"]:
+													if po.object_map.mapping_type != "reference":
+														print("In the triple map " + triples_map.triples_map_id + " the range for " + po.predicate_map.value + " should be a reference.")	
+												break
+									
 								if po.object_map.mapping_type == "reference":
 									if "{" in po.object_map.value or "}" in po.object_map.value:
 										print("In the triple map " + triples_map.triples_map_id + " reference object value should not have { }.")
@@ -393,14 +417,6 @@ def verify(config_path):
 
 					for po in triples_map.predicate_object_maps_list:
 						if "none" not in str(config["datasets"]["endpoint"].lower()):
-							no_predicate = True
-							for p in predicates["results"]["bindings"]:
-								if po.predicate_map.value in p["s"]["value"]:
-									no_predicate = False
-									break
-							if no_predicate:
-								print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
-
 							if triples_map.subject_map.rdf_class is not None:
 								no_class = True
 								for c in types["results"]["bindings"]:
@@ -409,6 +425,38 @@ def verify(config_path):
 										break
 								if no_class:
 									print("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+
+							no_predicate = True
+							for p in predicates["results"]["bindings"]:
+								if po.predicate_map.value in p["s"]["value"]:
+									no_predicate = False
+									break
+							if no_predicate:
+								print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+							else:
+								query = "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> \n"
+								query += "SELECT ?domain,?range \n"
+								query += "WHERE { " + po.predicate_map.value + " rdfs:domain ?domain;\n"
+								query += "rdfs:range ?range. }"
+								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+													PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>  
+													SELECT ?s,?domain,?range
+													WHERE { ?s rdf:type owl:DatatypeProperty; 
+													         rdfs:domain ?domain;
+													         rdfs:range ?range. }""")
+								sparql.setReturnFormat(JSON)
+								domain_range = sparql.query().convert()
+
+								for dr in domain_range["results"]["bindings"]:
+									if po.predicate_map.value in dr["s"]["value"]:
+										if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
+											print("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".")
+
+										if "Literal" in dr["range"]["value"]:
+											if po.object_map.mapping_type != "reference":
+												print("In the triple map " + triples_map.triples_map_id + " the range for " + po.predicate_map.value + " should be a reference.")	
+										break
 
 						if po.object_map.mapping_type == "reference":
 							if "{" in po.object_map.value or "}" in po.object_map.value:
