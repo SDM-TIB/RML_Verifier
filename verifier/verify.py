@@ -372,7 +372,6 @@ def verify(config_path):
 					print("In the triple map " + triples_map.triples_map_id + " the file " + triples_map.data_source + " does not exist.")
 					if "{" in triples_map.subject_map.value and "}" in triples_map.subject_map.value:
 						subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
-						attributes[subject_field] = "subject"
 					else:
 						print("In the triple map " + triples_map.triples_map_id + " subject value is missing { }.")
 
@@ -414,16 +413,9 @@ def verify(config_path):
 						if po.object_map.mapping_type == "reference":
 							if "{" in po.object_map.value or "}" in po.object_map.value:
 								print("In the triple map " + triples_map.triples_map_id + " object value should not have { }.")
-							else:
-								attributes[po.object_map.value] = "object"
 						elif po.object_map.mapping_type == "template":
 							if "{" in po.object_map.value and "}" in po.object_map.value:
 								object_field = po.object_map.value.value.split("{")[1].split("}")[0]
-								attributes[object_field] = "object"
-							else:
-								print("In the triple map " + triples_map.triples_map_id + " subject value is missing { }.")
-						elif po.object_map.mapping_type == "parent triples map":
-							attributes[po.object_map.child] = "object"
 
 				
 
