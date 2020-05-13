@@ -332,7 +332,7 @@ def verify(config_path):
 											no_predicate = False
 											break
 									if no_predicate:
-										print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + "is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+										print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
 
 									if triples_map.subject_map.rdf_class is not None:
 										no_class = True
@@ -341,7 +341,7 @@ def verify(config_path):
 												no_class = False
 												break
 										if no_class:
-											print("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + "is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+											print("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
 
 								if po.object_map.mapping_type == "reference":
 									if "{" in po.object_map.value or "}" in po.object_map.value:
@@ -399,7 +399,7 @@ def verify(config_path):
 									no_predicate = False
 									break
 							if no_predicate:
-								print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + "is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+								print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
 
 							if triples_map.subject_map.rdf_class is not None:
 								no_class = True
@@ -408,7 +408,7 @@ def verify(config_path):
 										no_class = False
 										break
 								if no_class:
-									print("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + "is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+									print("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
 
 						if po.object_map.mapping_type == "reference":
 							if "{" in po.object_map.value or "}" in po.object_map.value:
