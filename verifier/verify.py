@@ -302,12 +302,19 @@ def verify(config_path):
 						pass
 					else:
 						if str(triples_map.file_format).lower() == "csv" and triples_map.query == "None":
-							if "{" in triples_map.subject_map.value and "}" in triples_map.subject_map.value:
-								subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
-								attributes[subject_field] = "subject"
-							else:
-								print("In the triple map " + triples_map.triples_map_id + " subject value is missing { }.")
-
+							if "{" in triples_map.subject_map.value :
+								if "}" in triples_map.subject_map.value:
+									subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
+									attributes[subject_field] = "subject"
+								else:
+									print("In the triple map " + triples_map.triples_map_id + " subject value is missing }.")
+							elif "}" in triples_map.subject_map.value:
+								if "{" in triples_map.subject_map.value:
+									subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
+									attributes[subject_field] = "subject"
+								else:
+									print("In the triple map " + triples_map.triples_map_id + " subject value is missing {.")
+								
 							if "none" not in str(config["datasets"]["endpoint"].lower()):
 								sparql = SPARQLWrapper(config["datasets"]["endpoint"])
 								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -390,10 +397,16 @@ def verify(config_path):
 							sys.exit(1)
 				else:
 					print("In the triple map " + triples_map.triples_map_id + " the file " + triples_map.data_source + " does not exist.")
-					if "{" in triples_map.subject_map.value and "}" in triples_map.subject_map.value:
-						subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
-					else:
-						print("In the triple map " + triples_map.triples_map_id + " subject value is missing { }.")
+					if "{" in triples_map.subject_map.value :
+						if "}" in triples_map.subject_map.value:
+							pass
+						else:
+							print("In the triple map " + triples_map.triples_map_id + " subject value is missing }.")
+					elif "}" in triples_map.subject_map.value:
+						if "{" in triples_map.subject_map.value:
+							pass
+						else:
+							print("In the triple map " + triples_map.triples_map_id + " subject value is missing {.")
 
 					if "none" not in str(config["datasets"]["endpoint"].lower()):
 						sparql = SPARQLWrapper(config["datasets"]["endpoint"])
