@@ -468,7 +468,7 @@ def verify(config_path):
 								print("In the triple map " + triples_map.triples_map_id + " object value should not have { }.")
 						elif po.object_map.mapping_type == "template":
 							if "{" in po.object_map.value and "}" in po.object_map.value:
-								object_field = po.object_map.value.value.split("{")[1].split("}")[0]
+								object_field = po.object_map.value.split("{")[1].split("}")[0]
 
 				
 
