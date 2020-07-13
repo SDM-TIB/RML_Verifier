@@ -377,7 +377,7 @@ def verify(config_path):
 										attributes[po.object_map.value] = "object"
 								elif po.object_map.mapping_type == "template":
 									if "{" in po.object_map.value and "}" in po.object_map.value:
-										object_field = po.object_map.value.value.split("{")[1].split("}")[0]
+										object_field = po.object_map.value.split("{")[1].split("}")[0]
 										attributes[object_field] = "object"
 									else:
 										print("In the triple map " + triples_map.triples_map_id + " template object value is missing { }.")
