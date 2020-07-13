@@ -323,6 +323,13 @@ def verify(config_path):
 													WHERE { ?s rdf:type	owl:DatatypeProperty. }""")
 								sparql.setReturnFormat(JSON)
 								predicates = sparql.query().convert()
+								
+								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+													SELECT ?s 
+													WHERE { ?s rdf:type owl:ObjectProperty. }""")
+								sparql.setReturnFormat(JSON)
+								obj_property = sparql.query().convert()
 
 								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
 													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
@@ -347,6 +354,11 @@ def verify(config_path):
 										if po.predicate_map.value in p["s"]["value"]:
 											no_predicate = False
 											break
+									if no_predicate:
+										for p in obj_property["results"]["bindings"]:
+											if po.predicate_map.value in p["s"]["value"]:
+												no_predicate = False
+												break
 									if no_predicate:
 										print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
 									else:
