@@ -388,9 +388,10 @@ def verify(config_path):
 								data = csv.DictReader(input_file_descriptor, delimiter=',')
 								row = next(data)
 
-								for attr in attributes.keys():
-									if attr not in row.keys():
-										print("The attribute " + attr + "is not in " + triples_map.data_source)
+								if attributes:
+									for attr in attributes.keys():
+										if attr not in row.keys():
+											print("The attribute " + attr + "is not in " + triples_map.data_source)
 						else:
 							print("Invalid reference formulation or format")
 							print("Aborting...")
