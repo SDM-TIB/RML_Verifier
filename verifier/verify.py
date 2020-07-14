@@ -391,8 +391,11 @@ def verify(config_path):
 									if "{" in po.object_map.value and "}" in po.object_map.value:
 										object_field = po.object_map.value.split("{")[1].split("}")[0]
 										attributes[object_field] = "object"
-									else:
-										print("In the triple map " + triples_map.triples_map_id + " template object value is missing { }.")
+									elif "{" not in po.object_map.value and "}" in po.object_map.value:
+										print("In the triple map " + triples_map.triples_map_id + " template object value is missing {.")
+									elif "{" in po.object_map.value and "}" not in po.object_map.value:
+										print("In the triple map " + triples_map.triples_map_id + " template object value is missing }.")
+										
 								elif po.object_map.mapping_type == "parent triples map":
 									attributes[po.object_map.child] = "object"
 
@@ -401,8 +404,8 @@ def verify(config_path):
 								row = next(data)
 
 								if attributes:
-									for attr in attributes.keys():
-										if attr not in row.keys():
+									for attr in attributes:
+										if attr not in row and attr is not None:
 											print("The attribute " + attr + "is not in " + triples_map.data_source)
 						else:
 							print("Invalid reference formulation or format")
@@ -482,6 +485,10 @@ def verify(config_path):
 						elif po.object_map.mapping_type == "template":
 							if "{" in po.object_map.value and "}" in po.object_map.value:
 								object_field = po.object_map.value.split("{")[1].split("}")[0]
+							elif "{" not in po.object_map.value and "}" in po.object_map.value:
+								print("In the triple map " + triples_map.triples_map_id + " template object value is missing {.")
+							elif "{" in po.object_map.value and "}" not in po.object_map.value:
+								print("In the triple map " + triples_map.triples_map_id + " template object value is missing }.")
 
 				
 
