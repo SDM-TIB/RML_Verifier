@@ -290,11 +290,12 @@ def verify(config_path):
 	config.read(config_path)
 
 	with ThreadPoolExecutor(max_workers=10) as executor:
+		f = open("log.txt","w+")
 		for dataset_number in range(int(config["datasets"]["number_of_datasets"])):
 			dataset_i = "dataset" + str(int(dataset_number) + 1)
 			triples_map_list = mapping_parser(config[dataset_i]["mapping"])
 
-			print("Verifying {}...".format(config[dataset_i]["name"]))
+			f.write("Verifying {}...\n".format(config[dataset_i]["name"]))
 			for triples_map in triples_map_list:
 				if os.path.exists(triples_map.data_source):
 					attributes = {}
@@ -307,13 +308,13 @@ def verify(config_path):
 									subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
 									attributes[subject_field] = "subject"
 								else:
-									print("In the triple map " + triples_map.triples_map_id + " subject value is missing }.")
+									f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing }.\n")
 							elif "}" in triples_map.subject_map.value:
 								if "{" in triples_map.subject_map.value:
 									subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
 									attributes[subject_field] = "subject"
 								else:
-									print("In the triple map " + triples_map.triples_map_id + " subject value is missing {.")
+									f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing {.\n")
 								
 							if "none" not in str(config["datasets"]["endpoint"].lower()):
 								sparql = SPARQLWrapper(config["datasets"]["endpoint"])
@@ -347,7 +348,7 @@ def verify(config_path):
 												no_class = False
 												break
 										if no_class:
-											print("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+											f.write("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + " is not in the endpoint " + config["datasets"]["endpoint"] + ".\n")
 
 									no_predicate = True
 									for p in predicates["results"]["bindings"]:
@@ -360,7 +361,7 @@ def verify(config_path):
 												no_predicate = False
 												break
 									if no_predicate:
-										print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+										f.write("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".\n")
 									else:
 										sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
 															PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -375,16 +376,16 @@ def verify(config_path):
 										for dr in domain_range["results"]["bindings"]:
 											if po.predicate_map.value in dr["s"]["value"]:
 												if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
-													print("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".")
+													f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".\n")
 
 												if "Literal" in dr["range"]["value"]:
 													if po.object_map.mapping_type != "reference":
-														print("In the triple map " + triples_map.triples_map_id + " the range for " + po.predicate_map.value + " should be a reference.")	
+														f.write("In the triple map " + triples_map.triples_map_id + " the range for " + po.predicate_map.value + " should be a reference.")	
 												break
 									
 								if po.object_map.mapping_type == "reference":
 									if "{" in po.object_map.value or "}" in po.object_map.value:
-										print("In the triple map " + triples_map.triples_map_id + " reference object value should not have { }.")
+										f.write("In the triple map " + triples_map.triples_map_id + " reference object value should not have { }.\n")
 									else:
 										attributes[po.object_map.value] = "object"
 								elif po.object_map.mapping_type == "template":
@@ -392,9 +393,9 @@ def verify(config_path):
 										object_field = po.object_map.value.split("{")[1].split("}")[0]
 										attributes[object_field] = "object"
 									elif "{" not in po.object_map.value and "}" in po.object_map.value:
-										print("In the triple map " + triples_map.triples_map_id + " template object value is missing {.")
+										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
 									elif "{" in po.object_map.value and "}" not in po.object_map.value:
-										print("In the triple map " + triples_map.triples_map_id + " template object value is missing }.")
+										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
 										
 								elif po.object_map.mapping_type == "parent triples map":
 									attributes[po.object_map.child] = "object"
@@ -406,23 +407,23 @@ def verify(config_path):
 								if attributes:
 									for attr in attributes:
 										if attr not in row and attr is not None:
-											print("The attribute " + attr + "is not in " + triples_map.data_source)
+											f.write("The attribute " + attr + "is not in " + triples_map.data_source + ".\n")
 						else:
 							print("Invalid reference formulation or format")
 							print("Aborting...")
 							sys.exit(1)
 				else:
-					print("In the triple map " + triples_map.triples_map_id + " the file " + triples_map.data_source + " does not exist.")
+					f.write("In the triple map " + triples_map.triples_map_id + " the file " + triples_map.data_source + " does not exist.\n")
 					if "{" in triples_map.subject_map.value :
 						if "}" in triples_map.subject_map.value:
 							pass
 						else:
-							print("In the triple map " + triples_map.triples_map_id + " subject value is missing }.")
+							f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing }.\n")
 					elif "}" in triples_map.subject_map.value:
 						if "{" in triples_map.subject_map.value:
 							pass
 						else:
-							print("In the triple map " + triples_map.triples_map_id + " subject value is missing {.")
+							f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing {.\n")
 
 					if "none" not in str(config["datasets"]["endpoint"].lower()):
 						sparql = SPARQLWrapper(config["datasets"]["endpoint"])
@@ -449,7 +450,7 @@ def verify(config_path):
 										no_class = False
 										break
 								if no_class:
-									print("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+									f.write("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + " is not in the endpoint " + config["datasets"]["endpoint"] + ".\n")
 
 							no_predicate = True
 							for p in predicates["results"]["bindings"]:
@@ -457,7 +458,7 @@ def verify(config_path):
 									no_predicate = False
 									break
 							if no_predicate:
-								print("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".")
+								f.write("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".\n")
 							else:
 								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
 													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -472,27 +473,28 @@ def verify(config_path):
 								for dr in domain_range["results"]["bindings"]:
 									if po.predicate_map.value in dr["s"]["value"]:
 										if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
-											print("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".")
+											f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".\n")
 
 										if "Literal" in dr["range"]["value"]:
 											if po.object_map.mapping_type != "reference":
-												print("In the triple map " + triples_map.triples_map_id + " the range for " + po.predicate_map.value + " should be a reference.")	
+												f.write("In the triple map " + triples_map.triples_map_id + " the range for " + po.predicate_map.value + " should be a reference.\n")	
 										break
 
 						if po.object_map.mapping_type == "reference":
 							if "{" in po.object_map.value or "}" in po.object_map.value:
-								print("In the triple map " + triples_map.triples_map_id + " object value should not have { }.")
+								f.write("In the triple map " + triples_map.triples_map_id + " object value should not have { }.\n")
 						elif po.object_map.mapping_type == "template":
 							if "{" in po.object_map.value and "}" in po.object_map.value:
 								object_field = po.object_map.value.split("{")[1].split("}")[0]
 							elif "{" not in po.object_map.value and "}" in po.object_map.value:
-								print("In the triple map " + triples_map.triples_map_id + " template object value is missing {.")
+								f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
 							elif "{" in po.object_map.value and "}" not in po.object_map.value:
-								print("In the triple map " + triples_map.triples_map_id + " template object value is missing }.")
+								f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
 
 				
 
-			print("Successfully verfiried {}\n".format(config[dataset_i]["name"]))
+			f.write("Successfully verfiried {}\n".format(config[dataset_i]["name"]))
+	f.close()
 
 		
 
