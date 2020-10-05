@@ -372,16 +372,33 @@ def verify(config_path):
 															         rdfs:range ?range. }""")
 										sparql.setReturnFormat(JSON)
 										domain_range = sparql.query().convert()
+										dr_execute = False
+
+										sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+															PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+															PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>  
+															SELECT ?s,?domain,?range
+															WHERE { ?s rdf:type owl:ObjectProperty; 
+															         rdfs:domain ?domain;
+															         rdfs:range ?range. }""")
+										sparql.setReturnFormat(JSON)
+										dr_op = sparql.query().convert()
 
 										for dr in domain_range["results"]["bindings"]:
 											if po.predicate_map.value in dr["s"]["value"]:
 												if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
-													f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".\n")
+													dr_execute = True
 
 												if "Literal" in dr["range"]["value"]:
 													if po.object_map.mapping_type != "reference":
-														f.write("In the triple map " + triples_map.triples_map_id + " the range for " + po.predicate_map.value + " should be a reference.")	
+														f.write("In the triple map " + triples_map.triples_map_id + " the range for " + po.predicate_map.value + " should be a reference.\n")	
 												break
+
+										if dr_execute:
+											for dr in dr_op["results"]["bindings"]:
+												if po.predicate_map.value in dr["s"]["value"]:
+													if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
+														f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".\n")
 									
 								if po.object_map.mapping_type == "reference":
 									if "{" in po.object_map.value or "}" in po.object_map.value:
