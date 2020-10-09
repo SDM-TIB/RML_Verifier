@@ -454,6 +454,13 @@ def verify(config_path):
 						sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
 											PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
 											SELECT ?s 
+											WHERE { ?s rdf:type owl:ObjectProperty. }""")
+						sparql.setReturnFormat(JSON)
+						obj_property = sparql.query().convert()
+
+						sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+											PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+											SELECT ?s 
 											WHERE { ?s rdf:type owl:Class. }""")
 						sparql.setReturnFormat(JSON)
 						types = sparql.query().convert()
@@ -475,6 +482,11 @@ def verify(config_path):
 									no_predicate = False
 									break
 							if no_predicate:
+								for p in obj_property["results"]["bindings"]:
+									if po.predicate_map.value in p["s"]["value"]:
+										no_predicate = False
+										break
+							if no_predicate:
 								f.write("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".\n")
 							else:
 								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -489,8 +501,14 @@ def verify(config_path):
 
 								for dr in domain_range["results"]["bindings"]:
 									if po.predicate_map.value in dr["s"]["value"]:
-										if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
-											f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".\n")
+										if triples_map.subject_map.rdf_class is not None:
+											if dr["domain"]["value"] is not None:
+												if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
+													f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".\n")
+											else:
+												f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " is not defined.\n")
+										else:
+											f.write("In the triple map " + triples_map.triples_map_id + " there is no class defined.\n")
 
 										if "Literal" in dr["range"]["value"]:
 											if po.object_map.mapping_type != "reference":
@@ -510,7 +528,7 @@ def verify(config_path):
 
 				
 
-			f.write("Successfully verfiried {}\n".format(config[dataset_i]["name"]))
+			f.write("Successfully verifiried {}\n".format(config[dataset_i]["name"]))
 	f.close()
 
 		
