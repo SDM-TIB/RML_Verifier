@@ -290,11 +290,10 @@ def verify(config_path):
 	config.read(config_path)
 
 	with ThreadPoolExecutor(max_workers=10) as executor:
-		f = open(config[dataset_i]["name"]"_log.txt","w+")
 		for dataset_number in range(int(config["datasets"]["number_of_datasets"])):
 			dataset_i = "dataset" + str(int(dataset_number) + 1)
 			triples_map_list = mapping_parser(config[dataset_i]["mapping"])
-
+			f = open(config[dataset_i]["name"] + "_log.txt","w+")
 			f.write("Verifying {}...\n".format(config[dataset_i]["name"]))
 			for triples_map in triples_map_list:
 				if "none" not in str(config["datasets"]["alternate_path"].lower()):
