@@ -297,7 +297,15 @@ def verify(config_path):
 
 			f.write("Verifying {}...\n".format(config[dataset_i]["name"]))
 			for triples_map in triples_map_list:
-				if os.path.exists(triples_map.data_source):
+				if "none" not in str(config["datasets"]["alternate_path"].lower()):
+					file = triples_map.data_source.split("/")[len(triples_map.data_source.split("/"))-1]
+					if str(config["datasets"]["alternate_path"])[-1] == "/":
+						source = str(config["datasets"]["alternate_path"]) + file
+					else:
+						source = str(config["datasets"]["alternate_path"]) + "/" + file
+				else:
+					source = triples_map.data_source
+				if os.path.exists(source):
 					attributes = {}
 					if triples_map.function:
 						pass
@@ -339,6 +347,13 @@ def verify(config_path):
 								sparql.setReturnFormat(JSON)
 								types = sparql.query().convert()
 
+								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+													SELECT ?s 
+													WHERE { ?s rdf:type owl:Property. }""")
+								sparql.setReturnFormat(JSON)
+								properties = sparql.query().convert()
+
 							for po in triples_map.predicate_object_maps_list:
 								if "none" not in str(config["datasets"]["endpoint"].lower()):
 									if triples_map.subject_map.rdf_class is not None:
@@ -357,6 +372,11 @@ def verify(config_path):
 											break
 									if no_predicate:
 										for p in obj_property["results"]["bindings"]:
+											if po.predicate_map.value in p["s"]["value"]:
+												no_predicate = False
+												break
+									if no_predicate:
+										for p in properties["results"]["bindings"]:
 											if po.predicate_map.value in p["s"]["value"]:
 												no_predicate = False
 												break
@@ -417,20 +437,20 @@ def verify(config_path):
 								elif po.object_map.mapping_type == "parent triples map":
 									attributes[po.object_map.child] = "object"
 
-							with open(triples_map.data_source, "r") as input_file_descriptor:
+							with open(source, "r") as input_file_descriptor:
 								data = csv.DictReader(input_file_descriptor, delimiter=',')
 								row = next(data)
 
 								if attributes:
 									for attr in attributes:
 										if attr not in row and attr is not None:
-											f.write("The attribute " + attr + "is not in " + triples_map.data_source + ".\n")
+											f.write("The attribute " + attr + "is not in " + source + ".\n")
 						else:
 							print("Invalid reference formulation or format")
 							print("Aborting...")
 							sys.exit(1)
 				else:
-					f.write("In the triple map " + triples_map.triples_map_id + " the file " + triples_map.data_source + " does not exist.\n")
+					f.write("In the triple map " + triples_map.triples_map_id + " the file " + source + " does not exist.\n")
 					if "{" in triples_map.subject_map.value :
 						if "}" in triples_map.subject_map.value:
 							pass
@@ -465,6 +485,13 @@ def verify(config_path):
 						sparql.setReturnFormat(JSON)
 						types = sparql.query().convert()
 
+						sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+											PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+											SELECT ?s 
+											WHERE { ?s rdf:type owl:Property. }""")
+						sparql.setReturnFormat(JSON)
+						properties = sparql.query().convert()
+
 					for po in triples_map.predicate_object_maps_list:
 						if "none" not in str(config["datasets"]["endpoint"].lower()):
 							if triples_map.subject_map.rdf_class is not None:
@@ -483,6 +510,11 @@ def verify(config_path):
 									break
 							if no_predicate:
 								for p in obj_property["results"]["bindings"]:
+									if po.predicate_map.value in p["s"]["value"]:
+										no_predicate = False
+										break
+							if no_predicate:
+								for p in properties["results"]["bindings"]:
 									if po.predicate_map.value in p["s"]["value"]:
 										no_predicate = False
 										break
