@@ -290,7 +290,7 @@ def verify(config_path):
 	config.read(config_path)
 
 	with ThreadPoolExecutor(max_workers=10) as executor:
-		f = open("log.txt","w+")
+		f = open(config[dataset_i]["name"]"_log.txt","w+")
 		for dataset_number in range(int(config["datasets"]["number_of_datasets"])):
 			dataset_i = "dataset" + str(int(dataset_number) + 1)
 			triples_map_list = mapping_parser(config[dataset_i]["mapping"])
