@@ -28,6 +28,6 @@ mapping: ${default:main_directory}/mapping.ttl
 - output_folder: The folder where the log files will be generated.
 - mode: This option tells the verifier which mode to enter. 
 -- Mapping mode: Verifies the corectness of the mappings.
--- Onthology mode: Verifies which predicates and classes are being used in the mappings and which are not being used. 
+-- Ontology mode: Verifies which predicates and classes are being used in the mappings and which are not being used. 
 - name: Name of the data set.
 - mapping: Location of the mapping.

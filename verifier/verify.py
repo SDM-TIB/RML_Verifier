@@ -591,7 +591,7 @@ def verify(config_path):
 				f.write("Successfully verifiried {}\n".format(config[dataset_i]["name"]))
 		f.close()
 
-	elif config["datasets"]["mode"].lower() == "onthology":
+	elif config["datasets"]["mode"].lower() == "ontology":
 
 		if  config["datasets"]["endpoint"].lower() != "none":
 
