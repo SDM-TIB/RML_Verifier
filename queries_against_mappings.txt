@@ -27,6 +27,3 @@ where {
 FILTER(?template NOT IN (<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>,<http://www.w3.org/2002/07/owl#sameAs>,<http://www.w3.org/2000/01/rdf-schema#subClassOf>))
 BIND(SUBSTR(STR(?template),31) AS ?predicate)
 } 
-
-example of mappings endpoint: http://node2.research.tib.eu:11263/sparql/
-
