@@ -23,6 +23,19 @@ except:
 	from .triples_map import TriplesMap as tm
 
 
+def used_properties(value, values_list):
+	for v in values_list["results"]["bindings"]:
+		if value in v["predicate"]["value"]:
+			return False
+	return True
+
+def used_classes(value, values_list):
+	for v in values_list["results"]["bindings"]:
+		if value in v["class"]["value"]:
+			return False
+	return True
+
+
 def string_separetion(string):
 	if ("{" in string) and ("[" in string):
 		prefix = string.split("{")[0]
@@ -591,7 +604,7 @@ def verify(config_path):
 				f.write("Successfully verifiried {}\n".format(config[dataset_i]["name"]))
 		f.close()
 
-	elif config["datasets"]["mode"].lower() == "ontology":
+	elif config["datasets"]["mode"].lower() == "ontology-mapping":
 
 		if  config["datasets"]["endpoint"].lower() != "none":
 
@@ -601,10 +614,10 @@ def verify(config_path):
 				os.mkdir(config["datasets"]["output_folder"])
 			if config["datasets"]["output_folder"][len(config["datasets"]["output_folder"])-1] == "/":
 				f = open(config["datasets"]["output_folder"] + "mapping_log.txt","w+")
-				fo = open(config["datasets"]["output_folder"] + "onthology_log.txt","w+")
+				fo = open(config["datasets"]["output_folder"] + "ontology_log.txt","w+")
 			else:
 				f = open(config["datasets"]["output_folder"] + "/mapping_log.txt","w+")
-				fo = open(config["datasets"]["output_folder"] + "/onthology_log.txt","w+")
+				fo = open(config["datasets"]["output_folder"] + "/ontology_log.txt","w+")
 				
 			used_types = {}
 			used_predicates = {}
@@ -678,6 +691,83 @@ def verify(config_path):
 			print("An endpoint must be given for this mode.")
 			print('Aborting...')
 			sys.exit(1)
+
+	elif config["datasets"]["mode"].lower() == "ontology":
+
+		print("Verifying onthology...")
+
+		if not os.path.exists(config["datasets"]["output_folder"]):
+			os.mkdir(config["datasets"]["output_folder"])
+		if config["datasets"]["output_folder"][len(config["datasets"]["output_folder"])-1] == "/":
+			f = open(config["datasets"]["output_folder"] + "ontology_log.txt","w+")
+		else:
+			f = open(config["datasets"]["output_folder"] + "/ontology_log.txt","w+")
+
+		sparql = SPARQLWrapper(config["datasets"]["endpoint"])
+		sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+							PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+							SELECT ?s 
+							WHERE { ?s rdf:type	owl:DatatypeProperty. }""")
+		sparql.setReturnFormat(JSON)
+		predicates = sparql.query().convert()
+
+		sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+							PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+							SELECT ?s 
+							WHERE { ?s rdf:type owl:ObjectProperty. }""")
+		sparql.setReturnFormat(JSON)
+		obj_property = sparql.query().convert()
+
+		sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+							PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+							SELECT ?s 
+							WHERE { ?s rdf:type owl:Class. }""")
+		sparql.setReturnFormat(JSON)
+		types = sparql.query().convert()
+
+		sparql.setQuery("""select distinct ?class{
+							{select distinct ?class
+							where { ?triplesMap <http://www.w3.org/ns/r2rml#objectMap> ?node.
+							?node <http://www.w3.org/ns/r2rml#template> ?template.
+							FILTER(?template NOT IN (\"https://www.drugbank.ca/drugs/{DrugBankID}\",\"http://bio2rdf.org/drugbank:{DrugBankID}\",\"http://wifo5-04.informatik.uni-mannheim.de/drugbank/resource/drugs/{ DrugBankID}\"))
+							BIND(SUBSTR(STR( STRBEFORE(STR(?template),STR("/{")) ),25) AS ?class)}
+							} 
+							UNION
+							{select distinct ?class
+							where{
+							?triplesMap <http://www.w3.org/ns/r2rml#subjectMap> ?node.
+							?node <http://www.w3.org/ns/r2rml#class> ?template.
+							BIND(SUBSTR(STR(?template),31) AS ?class)}
+							}
+							}""")
+		sparql.setReturnFormat(JSON)
+		mapping_types = sparql.query().convert()
+
+		sparql.setQuery("""select distinct ?predicate
+							where { ?triplesMap <http://www.w3.org/ns/r2rml#predicateObjectMap> ?node.
+							?node <http://www.w3.org/ns/r2rml#predicate> ?template.
+							FILTER(?template NOT IN (<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>,<http://www.w3.org/2002/07/owl#sameAs>,<http://www.w3.org/2000/01/rdf-schema#subClassOf>))
+							BIND(SUBSTR(STR(?template),31) AS ?predicate)} """)
+		sparql.setReturnFormat(JSON)
+		mapping_properties = sparql.query().convert()
+
+		f.write("The following classes from the onthology are not being used in the mappings:\n")
+
+		for c in types["results"]["bindings"]:
+			if used_classes(c["s"]["value"],mapping_types):
+				f.write(c["s"]["value"] + "\n")
+
+		f.write("The following predicates from the onthology are not being used in the mappings:\n")
+
+		for p in predicates["results"]["bindings"]:
+			if used_properties(p["s"]["value"],mapping_properties):
+				f.write(p["s"]["value"] + "\n")
+
+		for o in obj_property["results"]["bindings"]:
+			if used_properties(o["s"]["value"],mapping_properties):
+				f.write(o["s"]["value"] + "\n")
+
+		print("Succesfully verifiried onthology...")
 
 	else:
 		print("The mode chosen is not valid.")
