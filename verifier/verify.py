@@ -25,13 +25,13 @@ except:
 
 def used_properties(value, values_list):
 	for v in values_list["results"]["bindings"]:
-		if value in v["predicate"]["value"]:
+		if v["predicate"]["value"] in value and v["predicate"]["value"] != "":
 			return False
 	return True
 
 def used_classes(value, values_list):
 	for v in values_list["results"]["bindings"]:
-		if value in v["class"]["value"]:
+		if v["class"]["value"] in value and v["class"]["value"] != "":
 			return False
 	return True
 
@@ -729,14 +729,16 @@ def verify(config_path):
 							{select distinct ?class
 							where { ?triplesMap <http://www.w3.org/ns/r2rml#objectMap> ?node.
 							?node <http://www.w3.org/ns/r2rml#template> ?template.
-							FILTER(?template NOT IN (\"https://www.drugbank.ca/drugs/{DrugBankID}\",\"http://bio2rdf.org/drugbank:{DrugBankID}\",\"http://wifo5-04.informatik.uni-mannheim.de/drugbank/resource/drugs/{ DrugBankID}\"))
-							BIND(SUBSTR(STR( STRBEFORE(STR(?template),STR("/{")) ),25) AS ?class)}
+							FILTER(?template NOT IN (\"https://www.drugbank.ca/drugs/{DrugBankID}\",\"http://bio2rdf.org/drugbank:{DrugBankID}\",\"http://wifo5-04.informatik.uni-mannheim.de/drugbank/resource/drugs/{DrugBankID}\"))
+							BIND(SUBSTR(STR( STRBEFORE(STR(?template),STR("/{")) ),25) AS ?class)
+							}
 							} 
 							UNION
 							{select distinct ?class
 							where{
 							?triplesMap <http://www.w3.org/ns/r2rml#subjectMap> ?node.
 							?node <http://www.w3.org/ns/r2rml#class> ?template.
+							BIND(SUBSTR(STR(?template),31) AS ?class)}
 							}
 							}""")
 		sparql.setReturnFormat(JSON)
@@ -746,6 +748,7 @@ def verify(config_path):
 							where { ?triplesMap <http://www.w3.org/ns/r2rml#predicateObjectMap> ?node.
 							?node <http://www.w3.org/ns/r2rml#predicate> ?template.
 							FILTER(?template NOT IN (<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>,<http://www.w3.org/2002/07/owl#sameAs>,<http://www.w3.org/2000/01/rdf-schema#subClassOf>))
+							BIND(SUBSTR(STR(?template),31) AS ?predicate)
 							} """)
 		sparql.setReturnFormat(JSON)
 		mapping_properties = sparql.query().convert()
