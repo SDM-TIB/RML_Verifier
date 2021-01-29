@@ -3,18 +3,12 @@ import os.path
 import re
 import csv
 import sys
-import uuid
 import rdflib
 import getopt
-import subprocess
 from rdflib.plugins.sparql import prepareQuery
 from configparser import ConfigParser, ExtendedInterpolation
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-import time
-import json
-import xml.etree.ElementTree as ET
-import pandas as pd
 from SPARQLWrapper import SPARQLWrapper, JSON
 
 try:
@@ -324,54 +318,201 @@ def verify(config_path):
 							source = str(config["datasets"]["alternate_path"]) + "/" + file
 					else:
 						source = triples_map.data_source
-					if os.path.exists(source):
-						attributes = {}
-						if triples_map.function:
-							pass
+					if str(triples_map.file_format) == "None":
+						f.write("In the triple map " + triples_map.triples_map_id + " file format is not defined.\n")
+					if triples_map.query == "None":
+						if os.path.exists(source):
+							attributes = {}
+							if triples_map.function:
+								pass
+							else:
+								if str(triples_map.file_format).lower() == "csv":
+									if "{" in triples_map.subject_map.value :
+										if "}" in triples_map.subject_map.value:
+											subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
+											attributes[subject_field] = "subject"
+										else:
+											f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing }.\n")
+									elif "}" in triples_map.subject_map.value:
+										if "{" in triples_map.subject_map.value:
+											subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
+											attributes[subject_field] = "subject"
+										else:
+											f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing {.\n")
+										
+									if "none" not in str(config["datasets"]["endpoint"].lower()):
+										sparql = SPARQLWrapper(config["datasets"]["endpoint"])
+										sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+															PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+															SELECT ?s 
+															WHERE { ?s rdf:type	owl:DatatypeProperty. }""")
+										sparql.setReturnFormat(JSON)
+										predicates = sparql.query().convert()
+										
+										sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+															PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+															SELECT ?s 
+															WHERE { ?s rdf:type owl:ObjectProperty. }""")
+										sparql.setReturnFormat(JSON)
+										obj_property = sparql.query().convert()
+
+										sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+															PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+															SELECT ?s 
+															WHERE { ?s rdf:type owl:Class. }""")
+										sparql.setReturnFormat(JSON)
+										types = sparql.query().convert()
+
+										sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+															PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+															SELECT ?s 
+															WHERE { ?s rdf:type owl:Property. }""")
+										sparql.setReturnFormat(JSON)
+										properties = sparql.query().convert()
+
+									for po in triples_map.predicate_object_maps_list:
+										if "none" not in str(config["datasets"]["endpoint"].lower()):
+											if triples_map.subject_map.rdf_class is not None:
+												no_class = True
+												for c in types["results"]["bindings"]:
+													if triples_map.subject_map.rdf_class in c["s"]["value"]:
+														no_class = False
+														break
+												if no_class:
+													f.write("In the triple map " + triples_map.triples_map_id + " the class " + triples_map.subject_map.rdf_class + " is not in the endpoint " + config["datasets"]["endpoint"] + ".\n")
+
+											no_predicate = True
+											for p in predicates["results"]["bindings"]:
+												if po.predicate_map.value == p["s"]["value"]:
+													no_predicate = False
+													break
+											if no_predicate:
+												for p in obj_property["results"]["bindings"]:
+													if po.predicate_map.value == p["s"]["value"]:
+														no_predicate = False
+														break
+											if no_predicate:
+												for p in properties["results"]["bindings"]:
+													if po.predicate_map.value == p["s"]["value"]:
+														no_predicate = False
+														break
+											if no_predicate:
+												f.write("In the triple map " + triples_map.triples_map_id + " the predicate " + po.predicate_map.value + " is not in the endpoint " + config["datasets"]["endpoint"] + ".\n")
+											else:
+												sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+																	PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+																	PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>  
+																	SELECT ?s,?domain,?range
+																	WHERE { ?s rdf:type owl:DatatypeProperty; 
+																	         rdfs:domain ?domain;
+																	         rdfs:range ?range. }""")
+												sparql.setReturnFormat(JSON)
+												domain_range = sparql.query().convert()
+												dr_execute = False
+
+												sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+																	PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+																	PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>  
+																	SELECT ?s,?domain,?range
+																	WHERE { ?s rdf:type owl:ObjectProperty; 
+																	         rdfs:domain ?domain;
+																	         rdfs:range ?range. }""")
+												sparql.setReturnFormat(JSON)
+												dr_op = sparql.query().convert()
+
+												for dr in domain_range["results"]["bindings"]:
+													if dr["s"]["value"] in po.predicate_map.value:
+														if triples_map.subject_map.rdf_class is not None:
+															if dr["domain"]["value"] is not None:
+																if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
+																	dr_execute = True
+															else:
+																f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " is not defined.\n")
+														else:
+															f.write("In the triple map " + triples_map.triples_map_id + " there is no class defined.\n")
+
+														if "Literal" in dr["range"]["value"]:
+															if po.object_map.mapping_type != "reference":
+																f.write("In the triple map " + triples_map.triples_map_id + " the range for " + po.predicate_map.value + " should be a reference.\n")	
+														break
+												if dr_execute:
+													for dr in dr_op["results"]["bindings"]:
+														if dr["s"]["value"] in po.predicate_map.value:
+															if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
+																f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".\n")
+											
+										if po.object_map.mapping_type == "reference":
+											if "{" in po.object_map.value or "}" in po.object_map.value:
+												f.write("In the triple map " + triples_map.triples_map_id + " reference object value should not have { }.\n")
+											else:
+												attributes[po.object_map.value] = "object"
+										elif po.object_map.mapping_type == "template":
+											if "{" in po.object_map.value and "}" in po.object_map.value:
+												object_field = po.object_map.value.split("{")[1].split("}")[0]
+												attributes[object_field] = "object"
+											elif "{" not in po.object_map.value and "}" in po.object_map.value:
+												f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
+											elif "{" in po.object_map.value and "}" not in po.object_map.value:
+												f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
+												
+										elif po.object_map.mapping_type == "parent triples map":
+											attributes[po.object_map.child] = "object"
+
+									with open(source, "r") as input_file_descriptor:
+										data = csv.DictReader(input_file_descriptor, delimiter=',')
+										row = next(data)
+
+										if attributes:
+											for attr in attributes:
+												if attr not in row and attr is not None:
+													f.write("The attribute " + attr + "is not in " + source + ".\n")
+								else:
+									print("Invalid reference formulation or format")
+									print("Aborting...")
+									sys.exit(1)
+						
 						else:
-							if str(triples_map.file_format).lower() == "csv" and triples_map.query == "None":
-								if "{" in triples_map.subject_map.value :
-									if "}" in triples_map.subject_map.value:
-										subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
-										attributes[subject_field] = "subject"
-									else:
-										f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing }.\n")
-								elif "}" in triples_map.subject_map.value:
-									if "{" in triples_map.subject_map.value:
-										subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
-										attributes[subject_field] = "subject"
-									else:
-										f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing {.\n")
-									
-								if "none" not in str(config["datasets"]["endpoint"].lower()):
-									sparql = SPARQLWrapper(config["datasets"]["endpoint"])
-									sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
-														PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
-														SELECT ?s 
-														WHERE { ?s rdf:type	owl:DatatypeProperty. }""")
-									sparql.setReturnFormat(JSON)
-									predicates = sparql.query().convert()
-									
-									sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
-														PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
-														SELECT ?s 
-														WHERE { ?s rdf:type owl:ObjectProperty. }""")
-									sparql.setReturnFormat(JSON)
-									obj_property = sparql.query().convert()
+							f.write("In the triple map " + triples_map.triples_map_id + " the file " + source + " does not exist.\n")
+							if "{" in triples_map.subject_map.value :
+								if "}" in triples_map.subject_map.value:
+									pass
+								else:
+									f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing }.\n")
+							elif "}" in triples_map.subject_map.value:
+								if "{" in triples_map.subject_map.value:
+									pass
+								else:
+									f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing {.\n")
 
-									sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
-														PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
-														SELECT ?s 
-														WHERE { ?s rdf:type owl:Class. }""")
-									sparql.setReturnFormat(JSON)
-									types = sparql.query().convert()
+							if "none" not in str(config["datasets"]["endpoint"].lower()):
+								sparql = SPARQLWrapper(config["datasets"]["endpoint"])
+								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+													SELECT ?s 
+													WHERE { ?s rdf:type	owl:DatatypeProperty. }""")
+								sparql.setReturnFormat(JSON)
+								predicates = sparql.query().convert()
 
-									sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
-														PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
-														SELECT ?s 
-														WHERE { ?s rdf:type owl:Property. }""")
-									sparql.setReturnFormat(JSON)
-									properties = sparql.query().convert()
+								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+													SELECT ?s 
+													WHERE { ?s rdf:type owl:ObjectProperty. }""")
+								sparql.setReturnFormat(JSON)
+								obj_property = sparql.query().convert()
+
+								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+													SELECT ?s 
+													WHERE { ?s rdf:type owl:Class. }""")
+								sparql.setReturnFormat(JSON)
+								types = sparql.query().convert()
+
+								sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
+													PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+													SELECT ?s 
+													WHERE { ?s rdf:type owl:Property. }""")
+								sparql.setReturnFormat(JSON)
+								properties = sparql.query().convert()
 
 								for po in triples_map.predicate_object_maps_list:
 									if "none" not in str(config["datasets"]["endpoint"].lower()):
@@ -424,7 +565,7 @@ def verify(config_path):
 											dr_op = sparql.query().convert()
 
 											for dr in domain_range["results"]["bindings"]:
-												if dr["s"]["value"] in po.predicate_map.value:
+												if po.predicate_map.value in dr["s"]["value"]:
 													if triples_map.subject_map.rdf_class is not None:
 														if dr["domain"]["value"] is not None:
 															if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
@@ -443,39 +584,21 @@ def verify(config_path):
 													if dr["s"]["value"] in po.predicate_map.value:
 														if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
 															f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".\n")
-										
-									if po.object_map.mapping_type == "reference":
-										if "{" in po.object_map.value or "}" in po.object_map.value:
-											f.write("In the triple map " + triples_map.triples_map_id + " reference object value should not have { }.\n")
-										else:
-											attributes[po.object_map.value] = "object"
-									elif po.object_map.mapping_type == "template":
-										if "{" in po.object_map.value and "}" in po.object_map.value:
-											object_field = po.object_map.value.split("{")[1].split("}")[0]
-											attributes[object_field] = "object"
-										elif "{" not in po.object_map.value and "}" in po.object_map.value:
-											f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
-										elif "{" in po.object_map.value and "}" not in po.object_map.value:
-											f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
-											
-									elif po.object_map.mapping_type == "parent triples map":
-										attributes[po.object_map.child] = "object"
 
-								with open(source, "r") as input_file_descriptor:
-									data = csv.DictReader(input_file_descriptor, delimiter=',')
-									row = next(data)
+								if po.object_map.mapping_type == "reference":
+									if "{" in po.object_map.value or "}" in po.object_map.value:
+										f.write("In the triple map " + triples_map.triples_map_id + " object value should not have { }.\n")
+								elif po.object_map.mapping_type == "template":
+									if "{" in po.object_map.value and "}" in po.object_map.value:
+										object_field = po.object_map.value.split("{")[1].split("}")[0]
+									elif "{" not in po.object_map.value and "}" in po.object_map.value:
+										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
+									elif "{" in po.object_map.value and "}" not in po.object_map.value:
+										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
 
-									if attributes:
-										for attr in attributes:
-											if attr not in row and attr is not None:
-												f.write("The attribute " + attr + "is not in " + source + ".\n")
-							else:
-								print("Invalid reference formulation or format")
-								print("Aborting...")
-								sys.exit(1)
-					
+						
 					else:
-						f.write("In the triple map " + triples_map.triples_map_id + " the file " + source + " does not exist.\n")
+						f.write("The current version of the RML Verifier cannot check correctness of data base tables.\n")
 						if "{" in triples_map.subject_map.value :
 							if "}" in triples_map.subject_map.value:
 								pass
@@ -598,9 +721,6 @@ def verify(config_path):
 									f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
 								elif "{" in po.object_map.value and "}" not in po.object_map.value:
 									f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
-
-					
-
 				f.write("Successfully verifiried {}\n".format(config[dataset_i]["name"]))
 		f.close()
 
