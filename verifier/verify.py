@@ -10,12 +10,97 @@ from configparser import ConfigParser, ExtendedInterpolation
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from SPARQLWrapper import SPARQLWrapper, JSON
+from mysql import connector
 
 try:
 	from triples_map import TriplesMap as tm
 except:
 	from .triples_map import TriplesMap as tm
 
+
+def count_characters(string):
+	count = 0
+	for s in string:
+		if s == "{":
+			count += 1
+	return count
+
+def translate_sql(triples_map):
+
+    query_list = []
+    proyections = []
+  
+    if "{" in triples_map.subject_map.value:
+        subject = triples_map.subject_map.value
+        count = count_characters(subject)
+        if (count == 1) and (subject.split("{")[1].split("}")[0] not in proyections):
+            subject = subject.split("{")[1].split("}")[0]
+            if "[" in subject:
+                subject = subject.split("[")[0]
+            proyections.append(subject)
+        elif count > 1:
+            subject_list = subject.split("{")
+            for s in subject_list:
+                if "}" in s:
+                    subject = s.split("}")[0]
+                    if "[" in subject:
+                        subject = subject.split("[")
+                    if subject not in proyections:
+                        proyections.append(subject)
+    else:
+        if triples_map.subject_map.value not in proyections:
+            proyections.append(triples_map.subject_map.value)
+
+    for po in triples_map.predicate_object_maps_list:
+        if "{" in po.object_map.value:
+            count = count_characters(po.object_map.value)
+            if 0 < count <= 1 :
+                predicate = po.object_map.value.split("{")[1].split("}")[0]
+                if "[" in predicate:
+                    predicate = predicate.split("[")[0]
+                if predicate not in proyections:
+                    proyections.append(predicate)
+
+            elif 1 < count:
+                predicate = po.object_map.value.split("{")
+                for po_e in predicate:
+                    if "}" in po_e:
+                        pre = po_e.split("}")[0]
+                        if "[" in pre:
+                            pre = pre.split("[")
+                        if pre not in proyections:
+                            proyections.append(pre)
+        elif "#" in po.object_map.value:
+            pass
+        elif "/" in po.object_map.value:
+            pass
+        else:
+            predicate = po.object_map.value 
+            if "[" in predicate:
+                predicate = predicate.split("[")[0]
+            if predicate not in proyections:
+                proyections.append(predicate)
+        if po.object_map.child != None:
+            for c in po.object_map.child:
+                if c not in proyections:
+                    proyections.append(c)
+
+    temp_query = "SELECT DISTINCT "
+    for p in proyections:
+        if type(p) == str:
+            if p != "None":
+                temp_query += "`" + p + "`, "
+        elif type(p) == list:
+            for pr in p:
+                temp_query += "`" + pr + "`, " 
+    temp_query = temp_query[:-2] 
+    if triples_map.tablename != "None":
+        temp_query = temp_query + " FROM " + triples_map.tablename + ";"
+    else:
+        temp_query = temp_query + " FROM " + triples_map.data_source + ";"
+    query_list.append(temp_query)
+
+    return triples_map.iterator, query_list
 
 def used_properties(value, values_list):
 	for v in values_list["results"]["bindings"]:
@@ -318,9 +403,9 @@ def verify(config_path):
 							source = str(config["datasets"]["alternate_path"]) + "/" + file
 					else:
 						source = triples_map.data_source
-					if str(triples_map.file_format) == "None":
+					if str(triples_map.file_format) == "None" and triples_map.query == "None" and triples_map.tablename == "None":
 						f.write("In the triple map " + triples_map.triples_map_id + " file format is not defined.\n")
-					if triples_map.query == "None":
+					if triples_map.query == "None" and triples_map.tablename == "None":
 						if os.path.exists(source):
 							attributes = {}
 							if triples_map.function:
@@ -595,18 +680,35 @@ def verify(config_path):
 										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
 									elif "{" in po.object_map.value and "}" not in po.object_map.value:
 										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
-
 						
 					else:
-						f.write("The current version of the RML Verifier cannot check correctness of data base tables.\n")
+						database, query_list = translate_sql(triples_map)
+						db = connector.connect(host = config[dataset_i]["host"], port = int(config[dataset_i]["port"]), user = config[dataset_i]["user"], password = config[dataset_i]["password"])
+						cursor = db.cursor(buffered=True)
+						if config[dataset_i]["db"].lower() != "none":
+							cursor.execute("use " + config[dataset_i]["db"])
+						else:
+							if database != "None":
+								cursor.execute("use " + database)
+						if triples_map.query == "None":	
+							for query in query_list:
+								cursor.execute(query)
+								row_headers=[x[0] for x in cursor.description]
+						else:
+							cursor.execute(triples_map.query)
+							row_headers = [x[0] for x in cursor.description]
 						if "{" in triples_map.subject_map.value :
 							if "}" in triples_map.subject_map.value:
-								pass
+								subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
+								if subject_field not in row_headers:
+									f.write("In the triple map " + triples_map.triples_map_id + " the attribute " + subject_field + " is missing from the query.\n")
 							else:
 								f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing }.\n")
 						elif "}" in triples_map.subject_map.value:
 							if "{" in triples_map.subject_map.value:
-								pass
+								subject_field = triples_map.subject_map.value.split("{")[1].split("}")[0]
+								if subject_field not in row_headers:
+									f.write("In the triple map " + triples_map.triples_map_id + " the attribute " + subject_field + " is missing from the query.\n")
 							else:
 								f.write("In the triple map " + triples_map.triples_map_id + " subject value is missing {.\n")
 
@@ -710,17 +812,47 @@ def verify(config_path):
 												if dr["s"]["value"] in po.predicate_map.value:
 													if triples_map.subject_map.rdf_class not in dr["domain"]["value"]:
 														f.write("In the triple map " + triples_map.triples_map_id + " the domain for " + po.predicate_map.value + " should be " + dr["domain"]["value"] + ".\n")
+								if po.object_map.mapping_type == "reference":
+									if "{" in po.object_map.value or "}" in po.object_map.value:
+										f.write("In the triple map " + triples_map.triples_map_id + " object value should not have { }.\n")
+									elif "{" not in po.object_map.value and "}" not in po.object_map.value:
+										if po.object_map.value not in row_headers:
+											f.write("In the triple map " + triples_map.triples_map_id + " the attribute " + po.object_map.value + " is missing from the query.\n")
+								elif po.object_map.mapping_type == "template":
+									if "{" in po.object_map.value and "}" in po.object_map.value:
+										object_field = po.object_map.value.split("{")[1].split("}")[0]
+										if object_field not in row_headers:
+											f.write("In the triple map " + triples_map.triples_map_id + " the attribute " + object_field + " is missing from the query.\n")
+									elif "{" not in po.object_map.value and "}" in po.object_map.value:
+										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
+									elif "{" in po.object_map.value and "}" not in po.object_map.value:
+										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
+								elif po.object_map.mapping_type == "parent triples map":
+									if po.object_map.child != None:
+										if po.object_map.child not in row_headers:
+											f.write("In the triple map " + triples_map.triples_map_id + " the attribute " + po.object_map.child + " is missing from the query.\n")
+						else:
+							for po in triples_map.predicate_object_maps_list:
+								if po.object_map.mapping_type == "reference":
+									if "{" in po.object_map.value or "}" in po.object_map.value:
+										f.write("In the triple map " + triples_map.triples_map_id + " object value should not have { }.\n")
+									elif "{" not in po.object_map.value and "}" not in po.object_map.value:
+										if po.object_map.value not in row_headers:
+											f.write("In the triple map " + triples_map.triples_map_id + " the attribute " + po.object_map.value + " is missing from the query.\n")
+								elif po.object_map.mapping_type == "template":
+									if "{" in po.object_map.value and "}" in po.object_map.value:
+										object_field = po.object_map.value.split("{")[1].split("}")[0]
+										if object_field not in row_headers:
+											f.write("In the triple map " + triples_map.triples_map_id + " the attribute " + object_field + " is missing from the query.\n")
+									elif "{" not in po.object_map.value and "}" in po.object_map.value:
+										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
+									elif "{" in po.object_map.value and "}" not in po.object_map.value:
+										f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
+								elif po.object_map.mapping_type == "parent triples map":
+									if po.object_map.child != None:
+										if po.object_map.child not in row_headers:
+											f.write("In the triple map " + triples_map.triples_map_id + " the attribute " + po.object_map.child + " is missing from the query.\n")
 
-							if po.object_map.mapping_type == "reference":
-								if "{" in po.object_map.value or "}" in po.object_map.value:
-									f.write("In the triple map " + triples_map.triples_map_id + " object value should not have { }.\n")
-							elif po.object_map.mapping_type == "template":
-								if "{" in po.object_map.value and "}" in po.object_map.value:
-									object_field = po.object_map.value.split("{")[1].split("}")[0]
-								elif "{" not in po.object_map.value and "}" in po.object_map.value:
-									f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing {.\n")
-								elif "{" in po.object_map.value and "}" not in po.object_map.value:
-									f.write("In the triple map " + triples_map.triples_map_id + " template object value is missing }.\n")
 				f.write("Successfully verifiried {}\n".format(config[dataset_i]["name"]))
 		f.close()
 
@@ -864,12 +996,15 @@ def verify(config_path):
 		sparql.setReturnFormat(JSON)
 		mapping_types = sparql.query().convert()
 
-		sparql.setQuery("""select distinct ?predicate
-							where { ?triplesMap <http://www.w3.org/ns/r2rml#predicateObjectMap> ?node.
-							?node <http://www.w3.org/ns/r2rml#predicate> ?template.
-							FILTER(?template NOT IN (<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>,<http://www.w3.org/2002/07/owl#sameAs>,<http://www.w3.org/2000/01/rdf-schema#subClassOf>))
-							BIND(SUBSTR(STR(?template),29) AS ?predicate)
-							} """)
+		sparql.setQuery("""select distinct ?template
+							where { 
+							{{ ?template rdf:type owl:ObjectProperty. }
+							UNION 
+							{ ?template rdf:type owl:DatatypeProperty. }}
+							FILTER ( !EXISTS 
+							{?triplesMap <http://www.w3.org/ns/r2rml#predicateObjectMap> ?node.
+							?node <http://www.w3.org/ns/r2rml#predicate> ?template.})
+							}""")
 		sparql.setReturnFormat(JSON)
 		mapping_properties = sparql.query().convert()
 
