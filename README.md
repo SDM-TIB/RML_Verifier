@@ -32,8 +32,8 @@ mapping: ${default:main_directory}/mapping.ttl
 	* Ontology-mapping mode: This mode is similar to the ontology mode but requires mapping to be inputed. 
 * name: Name of the data set.
 * mapping: Location of the mapping.
-* user: User for the database. (This option is only necessary if a MySQL or Postgres database is being used)
-* password: Password for the database. (This option is only necessary if a MySQL or Postgres database is being used)
-* host: Host for the database. (This option is only necessary if a MySQL or Postgres database is being used)
+* user: User for the database. (This option is only necessary if a MySQL database is being used)
+* password: Password for the database. (This option is only necessary if a MySQL database is being used)
+* host: Host for the database. (This option is only necessary if a MySQL database is being used)
 * port: Port for the database. (This option is only necessary if a MySQL database is being used)
-* db: Postgres database is being used. (This option is only necessary if a MySQL or Postgres database is being used)
+* db: Postgres database is being used. (This option is only necessary if a MySQL database is being used)
