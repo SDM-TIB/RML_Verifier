@@ -306,7 +306,7 @@ def main(config_path):
 		triples_map_list = mapping_parser(config[dataset_i]["mapping"])
 		for tp in triples_map_list:
 			attr = attr_extraction(tp.subject_map.value)
-			reader = pd.read_csv(triples_map.data_source, usecols=fields.keys())
+			reader = pd.read_csv(triples_map.data_source, usecols=attr.keys())
 			reader = reader.where(pd.notnull(reader), None)
 			reader = reader.drop_duplicates(keep='first')
 			reader = reader.to_dict(orient='records')
@@ -325,12 +325,22 @@ def main(config_path):
 					else:
 						classes[obj] = union(classes[obj],reader)
 				elif po.object_map.mapping_type == "parent triples map":
-					if po.object_map.child == None and po.object_map.parent:
-						obj = "<{}>".format(po.predicate_map.value)
-						if obj in classes:
-							classes[obj] = reader
-						else:
-							classes[obj] = union(classes[obj],reader)
+					for tp_element in triples_map_list:
+						if po.object_map.value == tp_element.triples_map_id:
+							attr2 = attr_extraction(tp_element.subject_map.value)
+							for a in attr2:
+								if a not in attr:
+									attr[a] = ""
+							reader = pd.read_csv(triples_map.data_source, usecols=attr.keys())
+							reader = reader.where(pd.notnull(reader), None)
+							reader = reader.drop_duplicates(keep='first')
+							reader = reader.to_dict(orient='records')
+							if po.object_map.child == None and po.object_map.parent:
+								obj = "<{}>".format(po.predicate_map.value)
+								if obj in classes:
+									classes[obj] = reader
+								else:
+									classes[obj] = union(classes[obj],reader)
 		print("Complete verification of mapping classes in  " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
 	sparql = SPARQLWrapper(config["datasets"]["endpoint"])
 	sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
