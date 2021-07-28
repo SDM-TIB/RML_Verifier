@@ -311,7 +311,7 @@ def main(config_path):
 			reader = reader.drop_duplicates(keep='first')
 			reader = reader.to_dict(orient='records')
 			if tp.subject_map.rdf_class is not None:
-				for rdf_class in tp.subject_map.rdf_class
+				for rdf_class in tp.subject_map.rdf_class:
 					obj = "<{}>".format(rdf_class)
 					if obj in classes:
 						classes[obj] = reader
