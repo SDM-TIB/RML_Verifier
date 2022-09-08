@@ -346,8 +346,7 @@ def main(config_path):
 	sparql.setQuery("""PREFIX owl: <http://www.w3.org/2002/07/owl#>
 						PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
 						SELECT distinct ?Class, count(distinct ?s) as ?cardinality 
-						WHERE { ?s a ?Class
-								FILTER(regex(?Class,'bigmedylitics.eu')) }
+						WHERE { ?s a ?Class}
 						GROUP BY ?Class""")
 	sparql.setReturnFormat(JSON)
 	types = sparql.query().convert()
@@ -358,14 +357,14 @@ def main(config_path):
 						GROUP BY ?p""")
 	sparql.setReturnFormat(JSON)
 	ontology_predicates = sparql.query().convert()
-	mapping_file = open(config["datasets"]["output_folder"] + "/" + config["datasets"]["name"] + "_class_verification.ttl","w")
+	mapping_file = open(config["datasets"]["output_folder"] + "/" + config["datasets"]["name"] + "_class_verification.txt","w")
 	for clss in classes:
 		for c in types["results"]["bindings"]:
 			if c["Class"]["value"] in clss:
     			mapping_file.write("Number of Subjects from Source: " + str(len(classes[clss])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"])
 	for predicate in predicates:
 		for p in ontology_predicates["results"]["bindings"]:
-			if p["p"]["value" in predicate:
+			if p["p"]["value"] in predicate:
 				mapping_file.write("Number of Subjects from Source: " + str(len(predicates[predicate])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"])
     mapping_file.close()
 	print("Ending Class Verification.\n")	
