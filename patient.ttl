@@ -1,0 +1,175 @@
+@prefix rr: <http://www.w3.org/ns/r2rml#> .
+@prefix rml: <http://semweb.mmlab.be/ns/rml#> .
+@prefix ql: <http://semweb.mmlab.be/ns/ql#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix schema: <http://schema.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix fnml: <http://semweb.mmlab.be/ns/fnml#> .
+@prefix fno: <https://w3id.org/function/ontology#> .
+@prefix clarifyFun: <http://clarify2020.eu/function/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix clarify: <http://clarify2020.eu/vocab/> .
+
+<LCPatient_lc_clinical_notes_HUPHM_patient>
+	rml:logicalSource [ rml:source "/mnt/e/CLARIFY-KG-pipeline/data/lc_clinical_notes_HUPHM/patient.csv";
+						rml:referenceFormulation ql:CSV;
+						];
+	rr:subjectMap [
+		rr:template "http://clarify2020.eu/entity/HUPHM_{EHR}";
+		rr:class clarify:LCPatient
+	];
+	rr:predicateObjectMap [
+		rr:predicate prov:has_provenance;
+		rr:objectMap [
+			rr:constant "http://clarify2020.eu/entity/HUPHM"
+		]
+	];
+	rr:predicateObjectMap [
+		rr:predicate clarify:hasCurrentCancerType;
+		rr:objectMap [
+			rr:parentTriplesMap <CancerType_lc_clinical_notes_HUPHM_patient>
+		]
+	];
+	rr:predicateObjectMap [
+		rr:predicate clarify:sex;
+		rr:objectMap [
+			rr:parentTriplesMap <Sex_lc_clinical_notes_HUPHM_patient>
+		]
+	];
+	rr:predicateObjectMap [
+		rr:predicate clarify:hasRace;
+		rr:objectMap [
+			rr:parentTriplesMap <Race_lc_clinical_notes_HUPHM_patient>
+		]
+	];	
+	rr:predicateObjectMap [
+		rr:predicate clarify:birthDate;
+		rr:objectMap [
+			rml:reference "birth_date";
+			rr:datatype xsd:date;
+
+		]
+	];
+	rr:predicateObjectMap [
+		rr:predicate clarify:locatedInCity;
+		rr:objectMap [
+			rr:parentTriplesMap <City_lc_clinical_notes_HUPHM_patient>
+		]
+	];
+	rr:predicateObjectMap [
+		rr:predicate clarify:locatedInHospital;
+		rr:objectMap [
+			rr:parentTriplesMap <Hospital_lc_clinical_notes_HUPHM_patient>
+		]
+	].
+
+<CancerType_lc_clinical_notes_HUPHM_patient>
+	rml:logicalSource [ rml:source "/mnt/e/CLARIFY-KG-pipeline/data/lc_clinical_notes_HUPHM/patient.csv";
+						rml:referenceFormulation ql:CSV;
+						];
+	rr:subjectMap <CancerType_Function_lc_clinical_notes_HUPHM_patient> ;
+	rr:termType rr:IRI;
+
+	rr:predicateObjectMap [
+		rr:predicate rdf:type;
+		rr:objectMap [
+			rr:template "http://clarify2020.eu/vocab/CancerType";		
+		]
+	];
+	rr:predicateObjectMap [
+		rr:predicate clarify:hasOriginalValue;
+		rr:objectMap [
+			rml:reference "type_patient";		
+		]
+	].
+
+<Sex_lc_clinical_notes_HUPHM_patient>
+	rml:logicalSource [ rml:source "/mnt/e/CLARIFY-KG-pipeline/data/lc_clinical_notes_HUPHM/patient.csv";
+						rml:referenceFormulation ql:CSV;
+						];
+    rr:subjectMap [
+        rr:template "http://clarify2020.eu/entity/{gender}";
+    ];
+	rr:predicateObjectMap [
+		rr:predicate rdf:type;
+		rr:objectMap [
+			rr:template "http://clarify2020.eu/vocab/Sex";		
+		]
+	].
+
+<Race_lc_clinical_notes_HUPHM_patient>
+	rml:logicalSource [ rml:source "/mnt/e/CLARIFY-KG-pipeline/data/lc_clinical_notes_HUPHM/patient.csv";
+						rml:referenceFormulation ql:CSV;
+						];
+    rr:subjectMap [
+        rr:template "http://clarify2020.eu/entity/{race}";
+    ];
+	rr:predicateObjectMap [
+		rr:predicate rdf:type;
+		rr:objectMap [
+			rr:template "http://clarify2020.eu/vocab/Race";		
+		]
+	].
+
+<City_lc_clinical_notes_HUPHM_patient>
+	rml:logicalSource [ rml:source "/mnt/e/CLARIFY-KG-pipeline/data/lc_clinical_notes_HUPHM/patient.csv";
+						rml:referenceFormulation ql:CSV;
+						];
+	rr:subjectMap [
+		rr:template "http://clarify2020.eu/City/{cityID}";
+		rr:class clarify:City;
+	].
+
+<Hospital_lc_clinical_notes_HUPHM_patient>
+	rml:logicalSource [ rml:source "/mnt/e/CLARIFY-KG-pipeline/data/lc_clinical_notes_HUPHM/patient.csv";
+						rml:referenceFormulation ql:CSV;
+						];
+	rr:subjectMap [
+		rr:template "http://clarify2020.eu/Hospital/{organization_id}";
+		rr:class clarify:Hospital;
+	].
+
+#######################################
+############## Functions ##############
+#######################################
+
+<CancerType_Function_lc_clinical_notes_HUPHM_patient>
+    fnml:functionValue [
+        rml:logicalSource [ rml:source "/mnt/e/CLARIFY-KG-pipeline/data/lc_clinical_notes_HUPHM/patient.csv";
+        rml:referenceFormulation ql:CSV 
+                            ];
+        rr:predicateObjectMap [
+            rr:predicate fno:executes ;
+            rr:objectMap [ 
+                rr:constant clarifyFun:findSemantic_HUPHM 
+            ]
+        ];   
+        rr:predicateObjectMap [
+            rr:predicate clarifyFun:tableName;
+            rr:objectMap [ 
+                rr:constant "patient" 
+            ]
+        ];
+        rr:predicateObjectMap [
+            rr:predicate clarifyFun:columnName;
+            rr:objectMap [ 
+                rr:constant "patient_type" 
+            ]
+        ];
+        rr:predicateObjectMap [
+            rr:predicate clarifyFun:resource;
+            rr:objectMap [ 
+                rr:constant "http://clarify2020.eu/entity/" 
+            ]
+        ];   
+        rr:predicateObjectMap [
+            rr:predicate clarifyFun:columnValue;
+            rr:objectMap [ 
+                rml:reference "type_patient" 
+            ]
+        ];                         
+    ].			
+
+
