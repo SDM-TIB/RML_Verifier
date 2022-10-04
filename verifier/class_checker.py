@@ -340,10 +340,17 @@ def main(config_path):
 			for po in tp.predicate_object_maps_list:
 				if po.object_map.mapping_type == "template" or po.object_map.mapping_type == "reference":
 					obj = "<{}>".format(po.predicate_map.value)
-					if obj not in classes:
-						predicates[obj] = reader
+					if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
+						obj = "<{}>".format(po.object_map.value)
+						if obj not in classes:
+							classes[obj] = reader
+						else:
+							classes[obj] = union(classes[obj],reader)
 					else:
-						predicates[obj] = union(classes[obj],reader)
+						if obj not in classes:
+							predicates[obj] = reader
+						else:
+							predicates[obj] = union(classes[obj],reader)
 				elif po.object_map.mapping_type == "parent triples map":
 					for tp_element in triples_map_list:
 						if po.object_map.value == tp_element.triples_map_id:
@@ -362,6 +369,7 @@ def main(config_path):
 								else:
 									predicates[obj] = union(classes[obj],reader)
 		print("Complete verification of mapping classes in  " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
+		print("Verifying mapping classes in Endpoint\n")
 		sparql = SPARQLWrapper(config["datasets"]["endpoint"])
 		sparql.setQuery(""" SELECT distinct ?Class, count(distinct ?s) as ?cardinality 
 							WHERE { ?s a ?Class.}
@@ -381,8 +389,9 @@ def main(config_path):
 		for predicate in predicates:
 			for p in ontology_predicates["results"]["bindings"]:
 				if p["p"]["value"] in predicate:
-					mapping_file.write(p["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(predicates[predicate])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
+					mapping_file.write(p["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(predicates[predicate])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
 		mapping_file.close()
+		print("Complete verification of mapping classes in Endpoint\n")
 	print("Ending Class Verification.\n")	
 
 if __name__ == '__main__':
