@@ -52,7 +52,7 @@ def mapping_parser(mapping_file):
 	mapping_graph = rdflib.Graph()
 
 	try:
-		mapping_graph.load(mapping_file, format='n3')
+		mapping_graph.parse(mapping_file, format='n3')
 	except Exception as n3_mapping_parse_exception:
 		print(n3_mapping_parse_exception)
 		print('Could not parse {} as a mapping file'.format(mapping_file))
@@ -311,49 +311,50 @@ def main(config_path):
 	config.read(config_path)
 	classes = {}
 	predicates = {}
+	triples_map_list = []
 	print("Beginning Class Verification.\n")
 	for dataset_number in range(int(config["datasets"]["number_of_datasets"])):
 		dataset_i = "dataset" + str(int(dataset_number) + 1)
-		print("Verifying mapping classes in " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
-		triples_map_list = mapping_parser(config[dataset_i]["mapping"])
-		for tp in triples_map_list:
-			if tp.subject_map is not None:
-				attr = attr_extraction(tp.subject_map.value)
-				reader = pd.read_csv(tp.data_source, usecols=attr.keys())
-				reader = reader.where(pd.notnull(reader), None)
-				reader = reader.drop_duplicates(keep='first')
-				reader = reader.to_dict(orient='records')
-				if tp.subject_map.rdf_class is not None:
-					if not isinstance(tp.subject_map.rdf_class,list):
-						obj = "<{}>".format(tp.subject_map.rdf_class)
+		triples_map_list += mapping_parser(config[dataset_i]["mapping"])
+	for tp in triples_map_list:
+		if tp.subject_map is not None:
+			attr = attr_extraction(tp.subject_map.value)
+			reader = pd.read_csv(tp.data_source, usecols=attr.keys())
+			reader = reader.where(pd.notnull(reader), None)
+			reader = reader.drop_duplicates(keep='first')
+			reader = reader.to_dict(orient='records')
+			if tp.subject_map.rdf_class is not None:
+				if not isinstance(tp.subject_map.rdf_class,list):
+					obj = "<{}>".format(tp.subject_map.rdf_class)
+					if obj not in classes:
+						classes[obj] = reader
+					else:
+						classes[obj] = union(classes[obj],reader)
+				else:
+					for rdf_class in tp.subject_map.rdf_class:
+						obj = "<{}>".format(rdf_class)
 						if obj not in classes:
 							classes[obj] = reader
 						else:
 							classes[obj] = union(classes[obj],reader)
+		for po in tp.predicate_object_maps_list:
+			if po.object_map.mapping_type == "template" or po.object_map.mapping_type == "reference":
+				obj = "<{}>".format(po.predicate_map.value)
+				if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
+					obj = "<{}>".format(po.object_map.value)
+					if obj not in classes:
+						classes[obj] = reader
 					else:
-						for rdf_class in tp.subject_map.rdf_class:
-							obj = "<{}>".format(rdf_class)
-							if obj not in classes:
-								classes[obj] = reader
-							else:
-								classes[obj] = union(classes[obj],reader)
-			for po in tp.predicate_object_maps_list:
-				if po.object_map.mapping_type == "template" or po.object_map.mapping_type == "reference":
-					obj = "<{}>".format(po.predicate_map.value)
-					if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
-						obj = "<{}>".format(po.object_map.value)
-						if obj not in classes:
-							classes[obj] = reader
-						else:
-							classes[obj] = union(classes[obj],reader)
+						classes[obj] = union(classes[obj],reader)
+				else:
+					if obj not in classes:
+						predicates[obj] = reader
 					else:
-						if obj not in classes:
-							predicates[obj] = reader
-						else:
-							predicates[obj] = union(classes[obj],reader)
-				elif po.object_map.mapping_type == "parent triples map":
-					for tp_element in triples_map_list:
-						if po.object_map.value == tp_element.triples_map_id:
+						predicates[obj] = union(classes[obj],reader)
+			elif po.object_map.mapping_type == "parent triples map":
+				for tp_element in triples_map_list:
+					if po.object_map.value == tp_element.triples_map_id:
+						if tp_element.data_source == tp.data_source:
 							attr2 = attr_extraction(tp_element.subject_map.value)
 							for a in attr2:
 								if a not in attr:
@@ -368,30 +369,32 @@ def main(config_path):
 									predicates[obj] = reader
 								else:
 									predicates[obj] = union(classes[obj],reader)
-		print("Complete verification of mapping classes in  " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
-		print("Verifying mapping classes in Endpoint\n")
-		sparql = SPARQLWrapper(config["datasets"]["endpoint"])
-		sparql.setQuery(""" SELECT distinct ?Class, count(distinct ?s) as ?cardinality 
-							WHERE { ?s a ?Class.}
-							GROUP BY ?Class""")
-		sparql.setReturnFormat(JSON)
-		types = sparql.query().convert()
-		sparql.setQuery(""" SELECT distinct ?p, count(distinct ?s) as ?cardinality 
-							WHERE {?s ?p ?o.}
-							GROUP BY ?p""")
-		sparql.setReturnFormat(JSON)
-		ontology_predicates = sparql.query().convert()
-		mapping_file = open(config["datasets"]["output_folder"] + "/" + config[dataset_i]["name"] + "_class_verification.txt","w")
-		for clss in classes:
-			for c in types["results"]["bindings"]:
-				if c["Class"]["value"] in clss:
-					mapping_file.write(c["Class"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(classes[clss])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
-		for predicate in predicates:
-			for p in ontology_predicates["results"]["bindings"]:
-				if p["p"]["value"] in predicate:
-					mapping_file.write(p["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(predicates[predicate])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
-		mapping_file.close()
-		print("Complete verification of mapping classes in Endpoint\n")
+						else:
+							pass
+	print("Complete verification of mapping classes in  " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
+	print("Verifying mapping classes in Endpoint\n")
+	sparql = SPARQLWrapper(config["datasets"]["endpoint"])
+	sparql.setQuery(""" SELECT distinct ?Class, count(distinct ?s) as ?cardinality 
+						WHERE { ?s a ?Class.}
+						GROUP BY ?Class""")
+	sparql.setReturnFormat(JSON)
+	types = sparql.query().convert()
+	sparql.setQuery(""" SELECT distinct ?p, count(distinct ?s) as ?cardinality 
+						WHERE {?s ?p ?o.}
+						GROUP BY ?p""")
+	sparql.setReturnFormat(JSON)
+	ontology_predicates = sparql.query().convert()
+	mapping_file = open(config["datasets"]["output_folder"] + "/" + config[dataset_i]["name"] + "_class_verification.txt","w")
+	for clss in classes:
+		for c in types["results"]["bindings"]:
+			if c["Class"]["value"] == clss:
+				mapping_file.write(c["Class"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(classes[clss])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
+	for predicate in predicates:
+		for p in ontology_predicates["results"]["bindings"]:
+			if p["p"]["value"] == predicate:
+				mapping_file.write(p["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(predicates[predicate])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
+	mapping_file.close()
+	print("Complete verification of mapping classes in Endpoint\n")
 	print("Ending Class Verification.\n")	
 
 if __name__ == '__main__':
