@@ -837,7 +837,7 @@ def verify(config_path):
 												if triples_map_element.tablename != triples_map.tablename and triples_map_element.data_source != triples_map.data_source:
 													f.write("Triples map " + triples_map.triples_map_id + " and triples map " + triples_map_element.triples_map_id + " do not use the same table.\n")
 
-				f.write("Successfully verifiried {}\n".format(config[dataset_i]["name"]))
+				f.write("Successfully verified {}\n".format(config[dataset_i]["name"]))
 
 			f.write("\n")
 			for triples_id in triples_map_id:
