@@ -1,3 +1,4 @@
-rdflib==4.2.2
+rdflib
 isodate==0.6.0
 SPARQLWrapper
+mysql-connector-python==8.0.22
