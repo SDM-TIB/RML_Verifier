@@ -4,6 +4,7 @@ import re
 import csv
 import sys
 import rdflib
+import urllib
 import getopt
 from configparser import ConfigParser, ExtendedInterpolation
 import traceback
@@ -18,6 +19,208 @@ except:
 
 global prefixes
 prefixes = {}
+
+def encode_char(string):
+	encoded = ""
+	valid_char = ["~","#","/",":"]
+	for s in string:
+		if s in valid_char:
+			encoded += s
+		elif s == "/":
+			encoded += "%2F"
+		else:
+			encoded += urllib.parse.quote(s)
+	return encoded
+
+def string_substitution(string, pattern, row, term, ignore, iterator):
+	template_references = re.finditer(pattern, string)
+	new_string = string
+	offset_current_substitution = 0
+	if iterator != "None":
+		if iterator != "$.[*]":
+			temp_keys = iterator.split(".")
+			for tp in temp_keys:
+				if "$" != tp and tp in row:
+					if "[*]" in tp:
+						row = row[tp.split("[*]")[0]]
+					else:
+						row = row[tp]
+				elif  tp == "":
+					if len(row.keys()) == 1:
+						while list(row.keys())[0] not in temp_keys:
+							row = row[list(row.keys())[0]]
+							if isinstance(row,list):
+								break
+	for reference_match in template_references:
+		start, end = reference_match.span()[0], reference_match.span()[1]
+		if pattern == "{(.+?)}":
+			no_match = True
+			if "]." in reference_match.group(1):
+				temp = reference_match.group(1).split("].")
+				match = temp[1]
+				condition = temp[0].split("[")
+				temp_value = row[condition[0]]
+				if "==" in condition[1]:
+					temp_condition = condition[1][2:-1].split("==")
+					iterators = temp_condition[0].split(".")
+					if isinstance(temp_value,list):
+						for tv in temp_value:
+							t_v = tv
+							for cond in iterators[:-1]:
+								if cond != "@":
+									t_v = t_v[cond]
+							if temp_condition[1][1:-1] == t_v[iterators[-1]]:
+								row = t_v
+								no_match = False
+					else:
+						for cond in iterators[-1]:
+							if cond != "@":
+								temp_value = temp_value[cond]
+						if temp_condition[1][1:-1] == temp_value[iterators[-1]]:
+							row = temp_value
+							no_match = False
+				elif "!=" in condition[1]:
+					temp_condition = condition[1][2:-1].split("!=")
+					iterators = temp_condition[0].split(".")
+					match = iterators[-1]
+					if isinstance(temp_value,list):
+						for tv in temp_value:
+							for cond in iterators[-1]:
+								if cond != "@":
+									temp_value = temp_value[cond]
+							if temp_condition[1][1:-1] != temp_value[iterators[-1]]:
+								row = t_v
+								no_match = False
+					else:
+						for cond in iterators[-1]:
+							if cond != "@":
+								temp_value = temp_value[cond]
+						if temp_condition[1][1:-1] != temp_value[iterators[-1]]:
+							row = temp_value
+							no_match = False
+				if no_match:
+					return None
+			else:
+				match = reference_match.group(1).split("[")[0]
+			if "\\" in match:
+				temp = match.split("{")
+				match = temp[len(temp)-1]
+			if "." in match:
+				if match not in row.keys():
+					temp_keys = match.split(".")
+					match = temp_keys[len(temp_keys) - 1]
+					for tp in temp_keys[:-1]:
+						if tp in row:
+							row = row[tp]
+						else:
+							return None
+			if row == None:
+				return None
+			if match in row.keys():
+				if row[match] != None and row[match] != "nan" and row[match] != "N/A" and row[match] != "None":
+					if (type(row[match]).__name__) != "str" and row[match] != None:
+						if (type(row[match]).__name__) == "float":
+							row[match] = repr(row[match])
+						else:
+							row[match] = str(row[match])
+					else:
+						if re.match(r'^-?\d+(?:\.\d+)$', row[match]) is not None:
+							row[match] = repr(float(row[match]))
+					if isinstance(row[match],dict):
+						print("The key " + match + " has a Json structure as a value.\n")
+						print("The index needs to be indicated.\n")
+						return None
+					else:
+						if re.search("^[\s|\t]*$", row[match]) is None:
+							value = row[match]
+							if "http" not in value and "http" in new_string[:start + offset_current_substitution]:
+								value = encode_char(value)
+							new_string = new_string[:start + offset_current_substitution] + value.strip() + new_string[ end + offset_current_substitution:]
+							offset_current_substitution = offset_current_substitution + len(value) - (end - start)
+							if "\\" in new_string:
+								new_string = new_string.replace("\\", "")
+								count = new_string.count("}")
+								i = 0
+								while i < count:
+									new_string = "{" + new_string
+									i += 1
+								new_string = new_string.replace(" ", "")
+
+						else:
+							return None
+				else:
+					return None
+			else:
+				print('The attribute ' + match + ' is missing.')
+				if ignore == "yes":
+					return None
+				print('Aborting...')
+				sys.exit(1)
+		elif pattern == ".+":
+			match = reference_match.group(0)
+			if "." in match:
+				if match not in row.keys():
+					temp_keys = match.split(".")
+					match = temp_keys[len(temp_keys) - 1]
+					for tp in temp_keys[:-1]:
+						if tp in row:
+							row = row[tp]
+						else:
+							return None
+			if row == None:
+				return None
+			if match in row.keys():
+				if (type(row[match]).__name__) != "str" and row[match] != None:
+					if (type(row[match]).__name__) == "float":
+						row[match] = repr(row[match])
+					else:
+						row[match] = str(row[match])
+				if isinstance(row[match],dict):
+					print("The key " + match + " has a Json structure as a value.\n")
+					print("The index needs to be indicated.\n")
+					return None
+				else:
+					if row[match] != None and row[match] != "nan" and row[match] != "N/A" and row[match] != "None":
+						if re.search("^[\s|\t]*$", row[match]) is None:
+							new_string = new_string[:start] + row[match].strip().replace("\"", "'") + new_string[end:]
+							new_string = "\"" + new_string + "\"" if new_string[0] != "\"" and new_string[-1] != "\"" else new_string
+						else:
+							return None
+					else:
+						return None
+			else:
+				print('The attribute ' + match + ' is missing.')
+				if ignore == "yes":
+					return None
+				print('Aborting...')
+				sys.exit(1)
+		else:
+			print("Invalid pattern")
+			if ignore == "yes":
+				return None
+			print("Aborting...")
+			sys.exit(1)
+	return new_string
+
+def object_extraction(obj_list,obj_map,subj_map,data):
+	for row in data:
+		subj = string_substitution(subj_map.value, "{(.+?)}", row, "subject", "yes", "None")
+		if obj_map.__class__.__name__ == "ObjectMap":
+			if obj_map.mapping_type == "template":
+				obj = string_substitution(obj_map.value, "{(.+?)}", row, "object", "yes", "None")
+			elif obj_map.mapping_type == "reference":
+				obj = string_substitution(obj_map.value, ".+", row, "object", "yes", "None")
+			elif obj_map.mapping_type == "constant":
+				obj = obj = "<{}>".format(obj_map.value)
+		else:
+			obj = string_substitution(obj_map.value, "{(.+?)}", row, "object", "yes", "None")
+
+		if obj not in obj_list:
+			obj_list[obj] = {subj:""}
+		else:
+			if subj not in obj_list[obj]:
+				obj_list[obj][subj] = ""
+	return obj_list
 
 def string_separetion(string):
 	if ("{" in string) and ("[" in string):
@@ -311,6 +514,7 @@ def main(config_path):
 	config.read(config_path)
 	classes = {}
 	predicates = {}
+	object_values = {}
 	triples_map_list = []
 	print("Beginning Class Verification.\n")
 	for dataset_number in range(int(config["datasets"]["number_of_datasets"])):
@@ -337,62 +541,86 @@ def main(config_path):
 							classes[obj] = reader
 						else:
 							classes[obj] = union(classes[obj],reader)
-		for po in tp.predicate_object_maps_list:
-			if po.object_map.mapping_type == "template" or po.object_map.mapping_type == "reference":
-				obj = "<{}>".format(po.predicate_map.value)
-				if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
-					obj = "<{}>".format(po.object_map.value)
-					if obj not in classes:
-						classes[obj] = reader
+			for po in tp.predicate_object_maps_list:
+				if po.object_map.mapping_type == "template" or po.object_map.mapping_type == "reference":
+					obj = "<{}>".format(po.predicate_map.value)
+					if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
+						obj = "<{}>".format(po.object_map.value)
+						if obj not in classes:
+							classes[obj] = reader
+						else:
+							classes[obj] = union(classes[obj],reader)
 					else:
-						classes[obj] = union(classes[obj],reader)
-				else:
-					if obj not in classes:
-						predicates[obj] = reader
-					else:
-						predicates[obj] = union(classes[obj],reader)
-			elif po.object_map.mapping_type == "parent triples map":
-				for tp_element in triples_map_list:
-					if po.object_map.value == tp_element.triples_map_id:
-						if tp_element.data_source == tp.data_source:
-							attr2 = attr_extraction(tp_element.subject_map.value)
+						if po.object_map.mapping_type == "template":
+							attr2 = attr_extraction(po.object_map.value)
 							for a in attr2:
 								if a not in attr:
 									attr[a] = ""
-							reader = pd.read_csv(tp.data_source, usecols=attr.keys())
-							reader = reader.where(pd.notnull(reader), None)
-							reader = reader.drop_duplicates(keep='first')
-							reader = reader.to_dict(orient='records')
-							if po.object_map.child == None and po.object_map.parent:
-								obj = "<{}>".format(po.predicate_map.value)
-								if obj in classes:
-									predicates[obj] = reader
-								else:
-									predicates[obj] = union(classes[obj],reader)
+						elif po.object_map.mapping_type == "reference":
+							attr2 = po.object_map.value
+							if attr2 not in attr:
+								attr[attr2] = ""
+						reader = pd.read_csv(tp.data_source, usecols=attr.keys())
+						reader = reader.where(pd.notnull(reader), None)
+						reader = reader.drop_duplicates(keep='first')
+						reader = reader.to_dict(orient='records')
+						object_values = object_extraction(object_values,po.object_map,tp.subject_map,reader)
+						if obj not in predicates:
+							predicates[obj] = reader
 						else:
-							pass
+							predicates[obj] = union(classes[obj],reader)
+						attr = attr_extraction(tp.subject_map.value)
+				elif po.object_map.mapping_type == "parent triples map":
+					for tp_element in triples_map_list:
+						if po.object_map.value == tp_element.triples_map_id:
+							if tp_element.data_source == tp.data_source:
+								attr2 = attr_extraction(tp_element.subject_map.value)
+								for a in attr2:
+									if a not in attr:
+										attr[a] = ""
+								reader = pd.read_csv(tp.data_source, usecols=attr.keys())
+								reader = reader.where(pd.notnull(reader), None)
+								reader = reader.drop_duplicates(keep='first')
+								reader = reader.to_dict(orient='records')
+								if po.object_map.child == None and po.object_map.parent == None:
+									obj = "<{}>".format(po.predicate_map.value)
+									if obj not in predicates:
+										predicates[obj] = reader
+									else:
+										predicates[obj] = union(predicates[obj],reader)
+									object_values = object_extraction(object_values,tp_element.subject_map,tp.subject_map,reader)
+									attr = attr_extraction(tp.subject_map.value)
+							else:
+								pass
 	print("Complete verification of mapping classes in  " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
-	print("Verifying mapping classes in Endpoint\n")
-	sparql = SPARQLWrapper(config["datasets"]["endpoint"])
-	sparql.setQuery(""" SELECT distinct ?Class, count(distinct ?s) as ?cardinality 
-						WHERE { ?s a ?Class.}
-						GROUP BY ?Class""")
-	sparql.setReturnFormat(JSON)
-	types = sparql.query().convert()
-	sparql.setQuery(""" SELECT distinct ?p, count(distinct ?s) as ?cardinality 
-						WHERE {?s ?p ?o.}
-						GROUP BY ?p""")
-	sparql.setReturnFormat(JSON)
-	ontology_predicates = sparql.query().convert()
+	
 	mapping_file = open(config["datasets"]["output_folder"] + "/" + config[dataset_i]["name"] + "_class_verification.txt","w")
 	for clss in classes:
+		sparql = SPARQLWrapper(config["datasets"]["endpoint"])
+		query = "SELECT count(distinct ?s) as ?cardinality\n"
+		query += "WHERE { ?s a " + clss + ".}"
+		sparql.setQuery(query)
+		sparql.setReturnFormat(JSON)
+		types = sparql.query().convert()
 		for c in types["results"]["bindings"]:
-			if c["Class"]["value"] == clss:
-				mapping_file.write(c["Class"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(classes[clss])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
+			mapping_file.write(clss + ": Number of Subjects from Source: " + str(count_non_none(classes[clss])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
 	for predicate in predicates:
+		query = "SELECT count(distinct ?s) as ?cardinality\n"
+		query += "WHERE {?s " + predicate + " ?o.}\n"
+		sparql.setQuery(query)
+		sparql.setReturnFormat(JSON)
+		ontology_predicates = sparql.query().convert()
 		for p in ontology_predicates["results"]["bindings"]:
-			if p["p"]["value"] == predicate:
-				mapping_file.write(p["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(predicates[predicate])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
+			mapping_file.write(predicate + ": Number of Subjects from Source: " + str(count_non_none(predicates[predicate])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
+		query = "SELECT distinct ?o count(distinct ?s) as ?cardinality\n"
+		query += "WHERE {?s " + predicate + " ?o.}\n"
+		query += "GROUP BY ?o"
+		sparql.setQuery(query)
+		sparql.setReturnFormat(JSON)
+		object_list = sparql.query().convert()
+		for o in object_list["results"]["bindings"]:
+			if o["o"]["value"] in object_values:
+				mapping_file.write(o["o"]["value"] + ": Number of Objects from Source: " + str(len(object_values[o["o"]["value"]])) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
 	mapping_file.close()
 	print("Complete verification of mapping classes in Endpoint\n")
 	print("Ending Class Verification.\n")	
