@@ -476,7 +476,7 @@ def verify(config_path):
 										if attributes:
 											for attr in attributes:
 												if attr not in row and attr is not None:
-													f.write("The attribute " + attr + "is not in " + source + ".\n")
+													f.write("The attribute " + attr + " is not in " + source + ".\n")
 								else:
 									print("Invalid reference formulation or format")
 									print("Aborting...")
