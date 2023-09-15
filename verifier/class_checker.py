@@ -604,23 +604,32 @@ def main(config_path):
 		types = sparql.query().convert()
 		for c in types["results"]["bindings"]:
 			mapping_file.write(clss + ": Number of Subjects from Source: " + str(count_non_none(classes[clss])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
-	for predicate in predicates:
-		query = "SELECT count(distinct ?s) as ?cardinality\n"
-		query += "WHERE {?s " + predicate + " ?o.}\n"
+		query = "SELECT distinct ?p\n"
+		query += "WHERE {?s ?p ?o.\n"
+		query += "	?s a " + clss + " .}\n"
 		sparql.setQuery(query)
 		sparql.setReturnFormat(JSON)
 		ontology_predicates = sparql.query().convert()
-		for p in ontology_predicates["results"]["bindings"]:
-			mapping_file.write(predicate + ": Number of Subjects from Source: " + str(count_non_none(predicates[predicate])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
-		query = "SELECT distinct ?o count(distinct ?s) as ?cardinality\n"
-		query += "WHERE {?s " + predicate + " ?o.}\n"
-		query += "GROUP BY ?o"
-		sparql.setQuery(query)
-		sparql.setReturnFormat(JSON)
-		object_list = sparql.query().convert()
-		for o in object_list["results"]["bindings"]:
-			if o["o"]["value"] in object_values:
-				mapping_file.write(o["o"]["value"] + ": Number of Objects from Source: " + str(len(object_values[o["o"]["value"]])) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
+		for predicate in ontology_predicates["results"]["bindings"]:
+			query = "SELECT distinct count(distinct ?s) as ?cardinality\n"
+			query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
+			query += "	?s a " + clss + " .}\n"
+			sparql.setQuery(query)
+			sparql.setReturnFormat(JSON)
+			predicate_values = sparql.query().convert()
+			for p in predicate_values["results"]["bindings"]:
+				if "<" + predicate["p"]["value"] + ">" in predicates: 
+					mapping_file.write(predicate["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(predicates["<" + predicate["p"]["value"] + ">"])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
+			query = "SELECT distinct ?o count(distinct ?s) as ?cardinality\n"
+			query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
+			query += "	?s a " + clss + " .}\n"
+			query += "GROUP BY ?o"
+			sparql.setQuery(query)
+			sparql.setReturnFormat(JSON)
+			object_list = sparql.query().convert()
+			for o in object_list["results"]["bindings"]:
+				if o["o"]["value"] in object_values:
+					mapping_file.write(o["o"]["value"] + ": Number of Objects from Source: " + str(len(object_values[o["o"]["value"]])) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
 	mapping_file.close()
 	print("Complete verification of mapping classes in Endpoint\n")
 	print("Ending Class Verification.\n")	
