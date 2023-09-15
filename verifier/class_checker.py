@@ -215,11 +215,12 @@ def object_extraction(obj_list,obj_map,subj_map,data):
 		else:
 			obj = string_substitution(obj_map.value, "{(.+?)}", row, "object", "yes", "None")
 
-		if obj not in obj_list:
-			obj_list[obj] = {subj:""}
-		else:
-			if subj not in obj_list[obj]:
-				obj_list[obj][subj] = ""
+		if obj != None:
+			if obj[1:-1] not in obj_list:
+				obj_list[obj[1:-1]] = {subj:""}
+			else:
+				if subj not in obj_list[obj[1:-1]]:
+					obj_list[obj[1:-1]][subj] = ""
 	return obj_list
 
 def string_separetion(string):
@@ -484,11 +485,14 @@ def mapping_parser(mapping_file):
 
 def attr_extraction(string):
 	attributes = {}
-	for pseudo_attr in string.split("{"):
-		if "}" in pseudo_attr:
-			attr = pseudo_attr.split("}")[0]
-			if attr not in attributes:
-				attributes[attr] = ""
+	if "{" in string:
+		for pseudo_attr in string.split("{"):
+			if "}" in pseudo_attr:
+				attr = pseudo_attr.split("}")[0]
+				if attr not in attributes:
+					attributes[attr] = ""
+	else:
+		attributes[string] = ""
 	return attributes
 
 def union(array1, array2):
@@ -542,6 +546,18 @@ def main(config_path):
 						else:
 							classes[obj] = union(classes[obj],reader)
 			for po in tp.predicate_object_maps_list:
+				if po.object_map.mapping_type == "constant":
+					obj = "<{}>".format(po.predicate_map.value)
+					if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
+						if obj not in classes:
+							classes[obj] = reader
+						else:
+							classes[obj] = union(classes[obj],reader)
+					else:
+						if obj not in predicates:
+							predicates[obj] = reader
+						else:
+							predicates[obj] = union(predicates[obj],reader)
 				if po.object_map.mapping_type == "template" or po.object_map.mapping_type == "reference":
 					obj = "<{}>".format(po.predicate_map.value)
 					if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
@@ -593,7 +609,7 @@ def main(config_path):
 							else:
 								pass
 	print("Complete verification of mapping classes in  " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
-	
+
 	mapping_file = open(config["datasets"]["output_folder"] + "/" + config[dataset_i]["name"] + "_class_verification.txt","w")
 	for clss in classes:
 		sparql = SPARQLWrapper(config["datasets"]["endpoint"])
@@ -603,33 +619,33 @@ def main(config_path):
 		sparql.setReturnFormat(JSON)
 		types = sparql.query().convert()
 		for c in types["results"]["bindings"]:
-			mapping_file.write(clss + ": Number of Subjects from Source: " + str(count_non_none(classes[clss])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
-		query = "SELECT distinct ?p\n"
-		query += "WHERE {?s ?p ?o.\n"
-		query += "	?s a " + clss + " .}\n"
-		sparql.setQuery(query)
-		sparql.setReturnFormat(JSON)
-		ontology_predicates = sparql.query().convert()
-		for predicate in ontology_predicates["results"]["bindings"]:
-			query = "SELECT distinct count(distinct ?s) as ?cardinality\n"
-			query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
+			mapping_file.write("Class " + clss + ": Number of Subjects from Source: " + str(count_non_none(classes[clss])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
+			query = "SELECT distinct ?p\n"
+			query += "WHERE {?s ?p ?o.\n"
 			query += "	?s a " + clss + " .}\n"
 			sparql.setQuery(query)
 			sparql.setReturnFormat(JSON)
-			predicate_values = sparql.query().convert()
-			for p in predicate_values["results"]["bindings"]:
-				if "<" + predicate["p"]["value"] + ">" in predicates: 
-					mapping_file.write(predicate["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(predicates["<" + predicate["p"]["value"] + ">"])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
-			query = "SELECT distinct ?o count(distinct ?s) as ?cardinality\n"
-			query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
-			query += "	?s a " + clss + " .}\n"
-			query += "GROUP BY ?o"
-			sparql.setQuery(query)
-			sparql.setReturnFormat(JSON)
-			object_list = sparql.query().convert()
-			for o in object_list["results"]["bindings"]:
-				if o["o"]["value"] in object_values:
-					mapping_file.write(o["o"]["value"] + ": Number of Objects from Source: " + str(len(object_values[o["o"]["value"]])) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
+			ontology_predicates = sparql.query().convert()
+			for predicate in ontology_predicates["results"]["bindings"]:
+				query = "SELECT distinct count(distinct ?s) as ?cardinality\n"
+				query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
+				query += "	?s a " + clss + " .}\n"
+				sparql.setQuery(query)
+				sparql.setReturnFormat(JSON)
+				predicate_values = sparql.query().convert()
+				for p in predicate_values["results"]["bindings"]:
+					if "<" + predicate["p"]["value"] + ">" in predicates: 
+						mapping_file.write("Predicate " + predicate["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(predicates["<" + predicate["p"]["value"] + ">"])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
+						query = "SELECT distinct ?o count(distinct ?s) as ?cardinality\n"
+						query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
+						query += "	?s a " + clss + " .}\n"
+						query += "GROUP BY ?o"
+						sparql.setQuery(query)
+						sparql.setReturnFormat(JSON)
+						object_list = sparql.query().convert()
+						for o in object_list["results"]["bindings"]:
+							if o["o"]["value"] in object_values:
+								mapping_file.write("Object " + o["o"]["value"] + ": Number of Objects from Source: " + str(len(object_values[o["o"]["value"]])) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
 	mapping_file.close()
 	print("Complete verification of mapping classes in Endpoint\n")
 	print("Ending Class Verification.\n")	
