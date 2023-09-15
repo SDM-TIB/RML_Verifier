@@ -568,7 +568,7 @@ def main(config_path):
 						if obj not in predicates:
 							predicates[obj] = reader
 						else:
-							predicates[obj] = union(classes[obj],reader)
+							predicates[obj] = union(predicates[obj],reader)
 						attr = attr_extraction(tp.subject_map.value)
 				elif po.object_map.mapping_type == "parent triples map":
 					for tp_element in triples_map_list:
