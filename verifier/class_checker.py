@@ -521,145 +521,145 @@ def main(config_path):
 	print("Beginning Class Verification.\n")
 	for dataset_number in range(int(config["datasets"]["number_of_datasets"])):
 		dataset_i = "dataset" + str(int(dataset_number) + 1)
-		triples_map_list += mapping_parser(config[dataset_i]["mapping"])
-	for tp in triples_map_list:
-		if tp.subject_map is not None:
-			clss = ""
-			attr = attr_extraction(tp.subject_map.value)
-			reader = pd.read_csv(tp.data_source, usecols=attr.keys())
-			reader = reader.where(pd.notnull(reader), None)
-			reader = reader.drop_duplicates(keep='first')
-			reader = reader.to_dict(orient='records')
-			if tp.subject_map.rdf_class is not None:
-				if not isinstance(tp.subject_map.rdf_class,list):
-					clss = "<{}>".format(tp.subject_map.rdf_class)
-					if clss not in classes:
-						classes[clss] = {"value":reader}
+		triples_map_list = mapping_parser(config[dataset_i]["mapping"])
+		for tp in triples_map_list:
+			if tp.subject_map is not None:
+				clss = ""
+				attr = attr_extraction(tp.subject_map.value)
+				reader = pd.read_csv(tp.data_source, usecols=attr.keys())
+				reader = reader.where(pd.notnull(reader), None)
+				reader = reader.drop_duplicates(keep='first')
+				reader = reader.to_dict(orient='records')
+				if tp.subject_map.rdf_class is not None:
+					if not isinstance(tp.subject_map.rdf_class,list):
+						clss = "<{}>".format(tp.subject_map.rdf_class)
+						if clss not in classes:
+							classes[clss] = {"value":reader}
+						else:
+							classes[clss]["value"] = union(classes[clss]["value"],reader)
 					else:
-						classes[clss]["value"] = union(classes[clss]["value"],reader)
+						for rdf_class in tp.subject_map.rdf_class:
+							clss = "<{}>".format(rdf_class)
+							if clss not in classes:
+								classes[clss] = {"value":reader}
+							else:
+								classes[clss]["value"] = union(classes[clss]["value"],reader)
 				else:
-					for rdf_class in tp.subject_map.rdf_class:
-						clss = "<{}>".format(rdf_class)
-						if clss not in classes:
-							classes[clss] = {"value":reader}
-						else:
-							classes[clss]["value"] = union(classes[clss]["value"],reader)
-			else:
-				for po in tp.predicate_object_maps_list:
-					if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in po.predicate_map.value:
-						clss = "<{}>".format(po.object_map.value)
-						if clss not in classes:
-							classes[clss] = {"value":reader}
-						else:
-							classes[clss]["value"] = union(classes[clss]["value"],reader)
+					for po in tp.predicate_object_maps_list:
+						if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in po.predicate_map.value:
+							clss = "<{}>".format(po.object_map.value)
+							if clss not in classes:
+								classes[clss] = {"value":reader}
+							else:
+								classes[clss]["value"] = union(classes[clss]["value"],reader)
 
-			if clss != "":
-				predicates = {}
-				for po in tp.predicate_object_maps_list:
-					object_values = {}
-					if po.object_map.mapping_type == "constant":
-						obj = "<{}>".format(po.predicate_map.value)
-						if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
-							pass
-						else:
-							if obj not in predicates:
-								predicates[obj] = {"value":reader}
+				if clss != "":
+					predicates = {}
+					for po in tp.predicate_object_maps_list:
+						object_values = {}
+						if po.object_map.mapping_type == "constant":
+							obj = "<{}>".format(po.predicate_map.value)
+							if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
+								pass
 							else:
-								predicates[obj]["value"] = union(predicates[obj]["value"],reader)
-							predicates[obj]["object_values"] = {po.object_map.value:count_non_none(reader)}
-					if po.object_map.mapping_type == "template" or po.object_map.mapping_type == "reference":
-						obj = "<{}>".format(po.predicate_map.value)
-						if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
-							pass
-						else:
-							if po.object_map.mapping_type == "template":
-								attr2 = attr_extraction(po.object_map.value)
-								for a in attr2:
-									if a not in attr:
-										attr[a] = ""
-							elif po.object_map.mapping_type == "reference":
-								attr2 = po.object_map.value
-								if attr2 not in attr:
-									attr[attr2] = ""
-							reader = pd.read_csv(tp.data_source, usecols=attr.keys())
-							reader = reader.where(pd.notnull(reader), None)
-							reader = reader.drop_duplicates(keep='first')
-							reader = reader.to_dict(orient='records')
-							if obj not in predicates:
-								predicates[obj] = {"value":reader}
+								if obj not in predicates:
+									predicates[obj] = {"value":reader}
+								else:
+									predicates[obj]["value"] = union(predicates[obj]["value"],reader)
+								predicates[obj]["object_values"] = {po.object_map.value:count_non_none(reader)}
+						if po.object_map.mapping_type == "template" or po.object_map.mapping_type == "reference":
+							obj = "<{}>".format(po.predicate_map.value)
+							if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in obj:
+								pass
 							else:
-								predicates[obj]["value"] = union(predicates[obj]["value"],reader)
-							object_values = object_extraction(object_values,po.object_map,tp.subject_map,reader)
-							predicates[obj]["object_values"] = object_values
-							attr = attr_extraction(tp.subject_map.value)
-					elif po.object_map.mapping_type == "parent triples map":
-						for tp_element in triples_map_list:
-							if po.object_map.value == tp_element.triples_map_id:
-								if tp_element.data_source == tp.data_source:
-									attr2 = attr_extraction(tp_element.subject_map.value)
+								if po.object_map.mapping_type == "template":
+									attr2 = attr_extraction(po.object_map.value)
 									for a in attr2:
 										if a not in attr:
 											attr[a] = ""
-									reader = pd.read_csv(tp.data_source, usecols=attr.keys())
-									reader = reader.where(pd.notnull(reader), None)
-									reader = reader.drop_duplicates(keep='first')
-									reader = reader.to_dict(orient='records')
-									if po.object_map.child == None and po.object_map.parent == None:
-										obj = "<{}>".format(po.predicate_map.value)
-										if obj not in predicates:
-											predicates[obj] = {"value":reader}
-										else:
-											predicates[obj]["value"] = union(predicates[obj]["value"],reader)
-										object_values = object_extraction(object_values,tp_element.subject_map,tp.subject_map,reader)
-										predicates[obj]["object_values"] = object_values
-										attr = attr_extraction(tp.subject_map.value)
+								elif po.object_map.mapping_type == "reference":
+									attr2 = po.object_map.value
+									if attr2 not in attr:
+										attr[attr2] = ""
+								reader = pd.read_csv(tp.data_source, usecols=attr.keys())
+								reader = reader.where(pd.notnull(reader), None)
+								reader = reader.drop_duplicates(keep='first')
+								reader = reader.to_dict(orient='records')
+								if obj not in predicates:
+									predicates[obj] = {"value":reader}
 								else:
-									pass
-				classes[clss]["predicates"] = predicates
-	print("Complete verification of mapping classes in  " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
+									predicates[obj]["value"] = union(predicates[obj]["value"],reader)
+								object_values = object_extraction(object_values,po.object_map,tp.subject_map,reader)
+								predicates[obj]["object_values"] = object_values
+								attr = attr_extraction(tp.subject_map.value)
+						elif po.object_map.mapping_type == "parent triples map":
+							for tp_element in triples_map_list:
+								if po.object_map.value == tp_element.triples_map_id:
+									if tp_element.data_source == tp.data_source:
+										attr2 = attr_extraction(tp_element.subject_map.value)
+										for a in attr2:
+											if a not in attr:
+												attr[a] = ""
+										reader = pd.read_csv(tp.data_source, usecols=attr.keys())
+										reader = reader.where(pd.notnull(reader), None)
+										reader = reader.drop_duplicates(keep='first')
+										reader = reader.to_dict(orient='records')
+										if po.object_map.child == None and po.object_map.parent == None:
+											obj = "<{}>".format(po.predicate_map.value)
+											if obj not in predicates:
+												predicates[obj] = {"value":reader}
+											else:
+												predicates[obj]["value"] = union(predicates[obj]["value"],reader)
+											object_values = object_extraction(object_values,tp_element.subject_map,tp.subject_map,reader)
+											predicates[obj]["object_values"] = object_values
+											attr = attr_extraction(tp.subject_map.value)
+									else:
+										pass
+					classes[clss]["predicates"] = predicates
+		print("Complete verification of mapping classes in  " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
 
-	mapping_file = open(config["datasets"]["output_folder"] + "/" + config[dataset_i]["name"] + "_class_verification.txt","w")
-	for clss in classes:
-		sparql = SPARQLWrapper(config["datasets"]["endpoint"])
-		query = "SELECT count(distinct ?s) as ?cardinality\n"
-		query += "WHERE { ?s a " + clss + ".}"
-		sparql.setQuery(query)
-		sparql.setReturnFormat(JSON)
-		types = sparql.query().convert()
-		for c in types["results"]["bindings"]:
-			mapping_file.write("Class " + clss + ": Number of Subjects from Source: " + str(count_non_none(classes[clss]["value"])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
-			query = "SELECT distinct ?p\n"
-			query += "WHERE {?s ?p ?o.\n"
-			query += "	?s a " + clss + " .}\n"
+		mapping_file = open(config["datasets"]["output_folder"] + "/" + config[dataset_i]["name"] + "_class_verification.txt","w")
+		for clss in classes:
+			sparql = SPARQLWrapper(config[dataset_i]["endpoint"])
+			query = "SELECT count(distinct ?s) as ?cardinality\n"
+			query += "WHERE { ?s a " + clss + ".}"
 			sparql.setQuery(query)
 			sparql.setReturnFormat(JSON)
-			ontology_predicates = sparql.query().convert()
-			for predicate in ontology_predicates["results"]["bindings"]:
-				query = "SELECT distinct count(distinct ?s) as ?cardinality\n"
-				query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
+			types = sparql.query().convert()
+			for c in types["results"]["bindings"]:
+				mapping_file.write("Class " + clss + ": Number of Subjects from Source: " + str(count_non_none(classes[clss]["value"])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
+				query = "SELECT distinct ?p\n"
+				query += "WHERE {?s ?p ?o.\n"
 				query += "	?s a " + clss + " .}\n"
 				sparql.setQuery(query)
 				sparql.setReturnFormat(JSON)
-				predicate_values = sparql.query().convert()
-				for p in predicate_values["results"]["bindings"]:
-					if "<" + predicate["p"]["value"] + ">" in classes[clss]["predicates"]:
-						mapping_file.write("Predicate " + predicate["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["value"])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
-						query = "SELECT distinct ?o count(distinct ?s) as ?cardinality\n"
-						query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
-						query += "	?s a " + clss + " .}\n"
-						query += "GROUP BY ?o"
-						sparql.setQuery(query)
-						sparql.setReturnFormat(JSON)
-						object_list = sparql.query().convert()
-						for o in object_list["results"]["bindings"]:
-							if o["o"]["value"] in classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"]:
-								if isinstance(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]],int):
-									mapping_file.write("Object " + o["o"]["value"] + ": Number of Objects from Source: " + str(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]]) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
-								else:
-									mapping_file.write("Object " + o["o"]["value"] + ": Number of Objects from Source: " + str(len(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]])) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
-	mapping_file.close()
-	print("Complete verification of mapping classes in Endpoint\n")
-	print("Ending Class Verification.\n")	
+				ontology_predicates = sparql.query().convert()
+				for predicate in ontology_predicates["results"]["bindings"]:
+					query = "SELECT distinct count(distinct ?s) as ?cardinality\n"
+					query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
+					query += "	?s a " + clss + " .}\n"
+					sparql.setQuery(query)
+					sparql.setReturnFormat(JSON)
+					predicate_values = sparql.query().convert()
+					for p in predicate_values["results"]["bindings"]:
+						if "<" + predicate["p"]["value"] + ">" in classes[clss]["predicates"]:
+							mapping_file.write("Predicate " + predicate["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["value"])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
+							query = "SELECT distinct ?o count(distinct ?s) as ?cardinality\n"
+							query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
+							query += "	?s a " + clss + " .}\n"
+							query += "GROUP BY ?o"
+							sparql.setQuery(query)
+							sparql.setReturnFormat(JSON)
+							object_list = sparql.query().convert()
+							for o in object_list["results"]["bindings"]:
+								if o["o"]["value"] in classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"]:
+									if isinstance(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]],int):
+										mapping_file.write("Object " + o["o"]["value"] + ": Number of Objects from Source: " + str(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]]) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
+									else:
+										mapping_file.write("Object " + o["o"]["value"] + ": Number of Objects from Source: " + str(len(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]])) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
+		mapping_file.close()
+		print("Complete verification of mapping classes in Endpoint\n")
+		print("Ending Class Verification.\n")	
 
 if __name__ == '__main__':
 	main(str(sys.argv[1]))
