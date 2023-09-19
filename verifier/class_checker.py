@@ -516,10 +516,10 @@ def count_non_none(data):
 def main(config_path):
 	config = ConfigParser(interpolation=ExtendedInterpolation())
 	config.read(config_path)
-	classes = {}
 	triples_map_list = []
 	print("Beginning Class Verification.\n")
 	for dataset_number in range(int(config["datasets"]["number_of_datasets"])):
+		classes = {}
 		dataset_i = "dataset" + str(int(dataset_number) + 1)
 		triples_map_list = mapping_parser(config[dataset_i]["mapping"])
 		for tp in triples_map_list:
