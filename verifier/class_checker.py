@@ -619,6 +619,7 @@ def main(config_path):
 		print("Complete verification of mapping classes in  " + config[dataset_i]["mapping"].split("/")[len(config[dataset_i]["mapping"].split("/"))-1] + ".\n")
 
 		mapping_file = open(config["datasets"]["output_folder"] + "/" + config[dataset_i]["name"] + "_class_verification.txt","w")
+		i = 0
 		for clss in classes:
 			sparql = SPARQLWrapper(config[dataset_i]["endpoint"])
 			query = "SELECT count(distinct ?s) as ?cardinality\n"
@@ -628,6 +629,8 @@ def main(config_path):
 			types = sparql.query().convert()
 			for c in types["results"]["bindings"]:
 				mapping_file.write("Class " + clss + ": Number of Subjects from Source: " + str(count_non_none(classes[clss]["value"])) + " Number of Subjects from Ontology: " + c["cardinality"]["value"] + "\n")
+				if count_non_none(classes[clss]["value"]) != int(c["cardinality"]["value"]):
+					i += 1
 				query = "SELECT distinct ?p\n"
 				query += "WHERE {?s ?p ?o.\n"
 				query += "	?s a " + clss + " .}\n"
@@ -644,6 +647,8 @@ def main(config_path):
 					for p in predicate_values["results"]["bindings"]:
 						if "<" + predicate["p"]["value"] + ">" in classes[clss]["predicates"]:
 							mapping_file.write("Predicate " + predicate["p"]["value"] + ": Number of Subjects from Source: " + str(count_non_none(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["value"])) + " Number of Subjects from Ontology: " + p["cardinality"]["value"] + "\n")
+							if count_non_none(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["value"]) != int(p["cardinality"]["value"]):
+								i += 1
 							query = "SELECT distinct ?o count(distinct ?s) as ?cardinality\n"
 							query += "WHERE {?s <" + predicate["p"]["value"] + "> ?o.\n"
 							query += "	?s a " + clss + " .}\n"
@@ -655,8 +660,13 @@ def main(config_path):
 								if o["o"]["value"] in classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"]:
 									if isinstance(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]],int):
 										mapping_file.write("Object " + o["o"]["value"] + ": Number of Objects from Source: " + str(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]]) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
+										if classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]] != int(o["cardinality"]["value"]):
+											i += 1 
 									else:
 										mapping_file.write("Object " + o["o"]["value"] + ": Number of Objects from Source: " + str(len(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]])) + " Number of Objects from Ontology: " + o["cardinality"]["value"] + "\n")
+										if len(classes[clss]["predicates"]["<" + predicate["p"]["value"] + ">"]["object_values"][o["o"]["value"]]) != int(o["cardinality"]["value"]):
+											i += 1 
+		mapping_file.write("\nNumber of Inconsistencies Found: " + str(i) + "\n")
 		mapping_file.close()
 		print("Complete verification of mapping classes in Endpoint\n")
 		print("Ending Class Verification.\n")	
