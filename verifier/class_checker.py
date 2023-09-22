@@ -491,6 +491,8 @@ def attr_extraction(string):
 				attr = pseudo_attr.split("}")[0]
 				if attr not in attributes:
 					attributes[attr] = ""
+	elif "http" in string:
+		pass
 	else:
 		attributes[string] = ""
 	return attributes
